@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 
 """
 This will merge data when all is received
@@ -38,7 +39,7 @@ def receive_data():
         if not query_id in query_sources:
             query_sources[query_id] = sources
 
-        if not source_id in query_sources[query_id]:
+        if not unicode(source_id) in query_sources[query_id]:
             # this is wrongly sent data. exit with bad_request
             # this should be unnecessary
             abort(400)
@@ -63,4 +64,4 @@ def receive_data():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
