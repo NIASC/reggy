@@ -4,6 +4,8 @@
 This will merge data when all is received
 """
 
+import json
+import urllib2
 from flask import Flask
 from flask import request, abort
 app = Flask(__name__)
@@ -53,6 +55,7 @@ def receive_data():
     if not query_sources[query_id]:
         # TODO: Do more than just print
         merged = merge(received[query_id])
+        urllib2.urlopen("http://localhost:5003/", json.dumps({"query_id": query_id, "data": merged}))
         print "finished", merged
         del received[query_id]
         del query_sources[query_id]
