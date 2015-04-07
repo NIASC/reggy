@@ -20,8 +20,11 @@ Dependencies
 ------------
 
 * flask micro web server
+* mongodb to store queries in a database
 * virtualenv to install flask as user
 * pip to install the other two
+
+Instructions:
 
     apt-get install python-pip python-virtualenv
     apt-get install build-essential python-dev mongodb  # for python-dev and mongodb
