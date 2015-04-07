@@ -39,7 +39,7 @@ def get_local_data(fieldnames):
 def send_data(data):
     print "sending", data
     try:
-        urllib2.urlopen('http://localhost:5000/', json.dumps(data))
+        urllib2.urlopen('http://localhost:5002/', json.dumps(data))
     except urllib2.HTTPError, e:
         print e
 
