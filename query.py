@@ -14,7 +14,7 @@ def serve_registry(registry_id):
     queries = json.loads(data)
     filtered = []
     for query in queries['queries']:
-        if registry_id in query:
+        if registry_id in query['sources']:
             query['fields'] = query[registry_id]
             filtered.append(query)
     return jsonify({"queries": filtered})

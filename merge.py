@@ -2,7 +2,16 @@
 
 """
 This will merge data when all is received
+
+We should be able to handle queries wanting data from one provider as well as multiple.
+
+A query will fill up ``received`` and ``query_sources``. Where ``received`` is
+a list of queries we are still waiting for data for, and query_sources is a
+hash of sources per query_id, for which we are waiting for data.
 """
+
+# TODO: Do we need both, probably not, as ``received`` contains no more info
+# than is provided in ``received``.
 
 import json
 import urllib2
@@ -51,16 +60,20 @@ def receive_data():
     received[query_id][source_id] = data['data']
     query_sources[query_id].remove(source_id)
 
-    # query_sources may be empty if this is the data sender
+    # if query_sources is emtpy, this was the last (or only) sender. data
+    # should then be merged, and temporary storage should be cleaned. the last
+    # step is to send the merged data to the summary server.
     if not query_sources[query_id]:
-        # TODO: Do more than just print
         merged = merge(received[query_id])
-        urllib2.urlopen("http://localhost:5003/", json.dumps({"query_id": query_id, "data": merged}))
-        print "finished", merged
         del received[query_id]
         del query_sources[query_id]
+        try:
+            urllib2.urlopen("http://localhost:5003/", json.dumps({"query_id": query_id, "data": merged}))
+            app.logger.debug("finished %s", merged)
+        except urllib2.URLError:
+            abort(502)
 
-    print received.keys(), query_sources
+    app.logger.debug("received: %s, sources left: %s", received.keys(), query_sources)
 
     return ""
 

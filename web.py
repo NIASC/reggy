@@ -17,6 +17,10 @@ app = Flask(__name__)
 client = MongoClient()
 db = client.reggy_query
 
+@app.route("/")
+def index():
+    return render_template('index.html')
+
 @app.route("/search", methods=['GET', 'POST'])
 def search():
     if request.method == 'POST':

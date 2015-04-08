@@ -8,8 +8,12 @@ import sys
 import json
 import urllib2
 import csv
+import logging
 
 source_id = sys.argv[1]
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(source_id)
 
 def find_indexes_from_fieldnames(headers, fieldnames):
     indexes = []
@@ -37,19 +41,19 @@ def get_local_data(fieldnames):
         return {'data': data, 'source_id': source_id}
 
 def send_data(data):
-    print "sending", data
+    logger.debug("sending: %s", data)
     try:
         urllib2.urlopen('http://localhost:5002/', json.dumps(data))
     except urllib2.HTTPError, e:
-        print e
+        logger.error(e)
 
 def fetch_queries(source_id):
-    print "fetching queries"
+    logger.debug("fetching queries")
     try:
         res = urllib2.urlopen('http://localhost:5001/' + source_id)
         return res.read()
     except urllib2.HTTPError, e:
-        print e
+        logger.error(e)
 
 queries = fetch_queries(source_id)
 if queries:

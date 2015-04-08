@@ -22,7 +22,7 @@ def summarize():
     merged = data["data"]
     query_id = data["query_id"]
     size = len(merged)
-    print query_id, ":", size
+    app.logger.debug("%s: %s", query_id, size)
     return jsonify({})
 
 
