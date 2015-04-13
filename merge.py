@@ -41,6 +41,7 @@ def merge(lists):
 @app.route("/", methods=['POST'])
 def receive_data():
     data = request.get_json(True)
+    app.logger.debug("received %s", data)
     query_id = data['query_id']
     source_id = data['source_id']
     sources = data['sources']
@@ -65,11 +66,13 @@ def receive_data():
     # step is to send the merged data to the summary server.
     if not query_sources[query_id]:
         merged = merge(received[query_id])
+        app.logger.debug("merged %s", data)
         del received[query_id]
         del query_sources[query_id]
         try:
-            urllib2.urlopen("http://localhost:5003/", json.dumps({"query_id": query_id, "data": merged}))
-            app.logger.debug("finished %s", merged)
+            data = json.dumps({"query_id": query_id, "data": merged})
+            urllib2.urlopen("http://localhost:5003/", data)
+            app.logger.debug("sent %s", data)
         except urllib2.URLError:
             abort(502)
 

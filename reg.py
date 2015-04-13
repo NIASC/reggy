@@ -1,23 +1,41 @@
 #!/usr/bin/env python2
 
 """
-This will mimic the cancer registry, not using correct data, but something similar.
+This will mimic a health registry, not using correct data, but something similar.
 """
 
+import os
 import sys
 import json
 import urllib2
 import csv
 import logging
 import hashlib
+import gnupg
 
 source_id = sys.argv[1]
 
-# TODO: Put salt in config file
-salt = "this should be a secret string not commited in version control"
-
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(source_id)
+
+configfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+try:
+    config = json.load(open(configfile))
+except IOError:
+    logger.info('Config file not found, using defaults')
+    config = {}
+
+# get encryption config from config file
+# keydir could be null in the file to use the default key folder
+encryption_config = config.get('encryption', {})
+keydir = encryption_config.get('keydir', None)
+if not keydir:
+    keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys")
+
+hash_config = config.get('hashing', {})
+
+gpg = gnupg.GPG(gnupghome=keydir)
+gpg.encoding = 'utf-8'
 
 def find_indexes_from_fieldnames(headers, fieldnames):
     indexes = []
@@ -31,7 +49,7 @@ def find_indexes_from_fieldnames(headers, fieldnames):
 
 def hash_id(registry_person_id):
     hash = hashlib.sha256()
-    hash.update(salt)
+    hash.update(hash_config.get('salt', "default salt should be overwritten"))
     hash.update(registry_person_id)
     return hash.hexdigest()
 
@@ -43,10 +61,16 @@ def get_local_data(fieldnames):
         indexes_to_use = find_indexes_from_fieldnames(headers, fieldnames)
         data = {}
         for line in tabular_data[1:]:
-            id = hash_id(line[0])
+            if hash_config.get('hash_ids', True):
+                id = hash_id(line[0])
+            else:
+                id = line[0]
             obj = {}
             for field in indexes_to_use:
                 obj[headers[field]] = line[field]
+            if encryption_config.get('encrypt_data', True):
+                recipient_email = encryption_config.get('recipient', 'sigurdga@edge')
+                obj = gpg.encrypt(json.dumps(obj), [recipient_email]).data
             data[id] = obj
         return {'data': data, 'source_id': source_id}
 
