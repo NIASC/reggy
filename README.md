@@ -38,7 +38,18 @@ Instructions:
 Usage
 -----
 
-In a lot of terminals, run ``source venv/bin/activate`` and one of the services: web, query, merge, result. Then do a few queries from ``localhost:5000/search`` and run ``reg.py hunt`` and ``reg.py cancer``. There should hopefully be some status output in the terminal running the summarize command.
+In a lot of terminals, run ``source venv/bin/activate`` and one of the
+services: web, query, merge, result. Then do a few queries from
+``localhost:5000/search`` and run ``reg.py hunt`` and ``reg.py cancer``. There
+should hopefully be some status output in the terminal running the summarize
+command.
+
+Configuration
+-------------
+
+There is a sample configuration file ``config.example.json`` that contains the
+default configuration values. This could (and should, in production) be copied
+to ``config.json`` and changed.
 
 License
 -------
