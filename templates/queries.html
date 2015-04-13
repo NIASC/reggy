@@ -1,0 +1,18 @@
+<!doctype html>
+
+<title>Queries for {{source_id}}</title>
+<h1>Queries for {{source_id}}</h1>
+
+{% for query in queries %}
+<table>
+    <tr>
+        <th>{{query.id}}</th>
+        <td>{{query.fields|join(", ")}}</td>
+        <td>
+            <a href="/{{source_id}}/accept/{{query.id}}">Accept</a>
+            <a href="/{{source_id}}/reject/{{query.id}}">Reject</a>
+        </td>
+    </tr>
+</table>
+{% endfor %}
+
