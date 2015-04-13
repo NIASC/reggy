@@ -9,8 +9,12 @@ import json
 import urllib2
 import csv
 import logging
+import hashlib
 
 source_id = sys.argv[1]
+
+# TODO: Put salt in config file
+salt = "this should be a secret string not commited in version control"
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(source_id)
@@ -25,6 +29,12 @@ def find_indexes_from_fieldnames(headers, fieldnames):
             pass
     return indexes
 
+def hash_id(registry_person_id):
+    hash = hashlib.sha256()
+    hash.update(salt)
+    hash.update(registry_person_id)
+    return hash.hexdigest()
+
 def get_local_data(fieldnames):
     with open(source_id + '.csv', 'r') as f:
         reader = csv.reader(f)
@@ -33,7 +43,7 @@ def get_local_data(fieldnames):
         indexes_to_use = find_indexes_from_fieldnames(headers, fieldnames)
         data = {}
         for line in tabular_data[1:]:
-            id = line[0]
+            id = hash_id(line[0])
             obj = {}
             for field in indexes_to_use:
                 obj[headers[field]] = line[field]
