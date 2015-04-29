@@ -16,7 +16,7 @@ hash of sources per query_id, for which we are waiting for data.
 import json
 import urllib2
 from flask import Flask
-from flask import request, abort
+from flask import request, abort, render_template
 app = Flask(__name__)
 
 received = {}
@@ -79,6 +79,11 @@ def receive_data():
     app.logger.debug("received: %s, sources left: %s", received.keys(), query_sources)
 
     return ""
+
+
+@app.route("/status")
+def status():
+    return render_template("merge-status.html", queries=query_sources)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,19 @@
+<!doctype html>
+
+<title>Merge server is waiting for partial queries</title>
+
+<h1>Merge server is waiting for partial queries</h1>
+
+{% for query_id, sources in queries.iteritems() %}
+<h2>{{query_id}}</h2>
+    <ul>
+    {% for source in sources %}
+    <li>{{source}}
+    {% endfor %}
+    </ul>
+{% else %}
+<p>No partial queries to wait for
+{% endfor %}
+
+<p>Merge server does not know about any queries until it gets a partial
+response to merge.
