@@ -126,7 +126,7 @@ def send(source_id, method, query_id):
                     send_data(data)
                     return redirect("/"+source_id)
                 else:
-                    data = {}
+                    data = {'source_id': source_id}
                     data['query_id'] = query['id']
                     data['sources'] = query['sources']
                     send_data(data)

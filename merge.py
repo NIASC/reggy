@@ -25,16 +25,17 @@ query_sources = {}
 def merge(lists):
     total = {}
     registrys = lists.keys()
-    for id in lists[registrys[0]]:
-        in_all = True
-        data = {}
-        for registry in registrys:  # doing all as this is faster than looping twice
-            if id not in lists[registry]:
-                in_all = False
-                break
-            data[registry] = lists[registry][id]
-        if in_all:
-            total[id] = data
+    if registrys:
+        for id in lists[registrys[0]]:
+            in_all = True
+            data = {}
+            for registry in registrys:  # doing all as this is faster than looping twice
+                if id not in lists[registry]:
+                    in_all = False
+                    break
+                data[registry] = lists[registry][id]
+            if in_all:
+                total[id] = data
     return total
 
 
@@ -58,7 +59,10 @@ def receive_data():
     if not query_id in received:
         received[query_id] = {}
 
-    received[query_id][source_id] = data['data']
+    # if accepted by registry make data ready to merge
+    if 'data' in data:
+        received[query_id][source_id] = data['data']
+
     query_sources[query_id].remove(source_id)
 
     # if query_sources is emtpy, this was the last (or only) sender. data
