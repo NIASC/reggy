@@ -32,11 +32,11 @@ Instructions:
     apt-get install python-pip python-virtualenv
     apt-get install build-essential python-dev mongodb  # for python-dev and mongodb
     # the next will specify where the virtual env is going to be located
-    virtualenv venv
+    virtualenv2 venv
     # use the virtual python environment instead of the global environment
     source venv/bin/activate
     # install flask and the mongodb bindings in the venv folder
-    pip install flask mongodb
+    pip install flask pymongo python-gnupg
 
 Usage
 -----
