@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
 This will simulate sending email results.
@@ -7,20 +7,17 @@ This will simulate sending email results.
 import os
 import gnupg
 import json
+import logging
+import socketserver
 
-from flask import Flask
-from flask import request, jsonify
-app = Flask(__name__)
+logger = logging.getLogger(__name__)
 
 configfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 try:
     config = json.load(open(configfile))
 except IOError:
-    app.logger.info('Config file not found, using defaults')
+    logger.info('Config file not found, using defaults')
     config = {}
-
-# TODO: This does not need to be a web server. It was just easy to do it the
-# same way as the other hacks and mockups
 
 # TODO: Add a layer between this and merge, do decrypt data from merge
 
@@ -37,31 +34,37 @@ gpg = gnupg.GPG(gnupghome=keydir)
 gpg.encoding = 'utf-8'
 
 
-@app.route("/", methods=['POST'])
-def summarize():
-    data = request.get_json(True)
-    app.logger.debug("received %s", data)
+class SummaryHandler(socketserver.StreamRequestHandler):
+    def handle(self):
+        self.data = self.rfile.readline().split()
+        print(self.data)
+        data = json.loads(self.data.decode("utf-8"))
+        print(data)
 
-    if encryption_config.get('encrypt_data', True):
-        results = {}
-        # decrypt
-        for id, result in data["data"].items():
-            results[id] = {}
-            for source_id, encrypted in result.items():
-                results[id][source_id] = gpg.decrypt(encrypted).data
+        logger.debug("got %s", data)
 
-        app.logger.debug("decrypted %s", results)
-    else:
-        results = data["data"]
+        if encryption_config.get('encrypt_data', True):
+            results = {}
+            # decrypt
+            for id, result in data["data"].items():
+                results[id] = {}
+                for source_id, encrypted in result.items():
+                    results[id][source_id] = gpg.decrypt(encrypted).data
 
-    # filter TODO
+            logger.debug("decrypted %s", results)
+        else:
+            results = data["data"]
 
-    # summarize
-    query_id = data["query_id"]
-    size = len(results)
-    app.logger.debug("%s: %s", query_id, size)
-    return jsonify({})
+        # TODO: Add filter
 
+        # summarize
+        query_id = data["query_id"]
+        logger.debug("%s: %s", query_id)
+        response = ""
+        self.request.sendall(bytes(response, "utf-8"))
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5003)
+if __name__ == "__main__":
+    HOST, PORT = "localhost", 50030
+
+    server = socketserver.TCPServer((HOST, PORT), SummaryHandler)
+    server.serve_forever()

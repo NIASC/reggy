@@ -11,6 +11,8 @@ import urllib2
 import csv
 import hashlib
 import gnupg
+import socket
+
 from flask import Flask, render_template, redirect
 
 app = Flask(__name__)
@@ -88,11 +90,30 @@ def send_data(data):
 
 def fetch_queries(source_id):
     app.logger.debug("fetching queries")
+    HOST, PORT = "localhost", 50010
+    data = json.dumps({"source_id": source_id})
+
+    # Create a socket (SOCK_STREAM means a TCP socket)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print(data)
+    received = None
+
     try:
-        res = urllib2.urlopen('http://localhost:5001/' + source_id)
-        return res.read()
-    except urllib2.HTTPError, e:
-        app.logger.error(e)
+        # Connect to server and send data
+        sock.connect((HOST, PORT))
+        sock.sendall(data + "\n")
+
+        # Receive data from the server and shut down
+        received = sock.makefile().readline()
+        print(received)
+
+        print("Sent:     {}".format(data))
+        print("Received: {}".format(received))
+    finally:
+        sock.close()
+
+    return received
+
 
 
 @app.route("/")

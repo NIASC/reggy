@@ -15,12 +15,14 @@ hash of sources per query_id, for which we are waiting for data.
 
 import json
 import urllib2
+import socket
 from flask import Flask
 from flask import request, abort, render_template
 app = Flask(__name__)
 
 received = {}
 query_sources = {}
+
 
 def merge(lists):
     total = {}
@@ -73,16 +75,44 @@ def receive_data():
         app.logger.debug("merged %s", data)
         del received[query_id]
         del query_sources[query_id]
-        try:
-            data = json.dumps({"query_id": query_id, "data": merged})
-            urllib2.urlopen("http://localhost:5003/", data)
-            app.logger.debug("sent %s", data)
-        except urllib2.URLError:
-            abort(502)
+        data = json.dumps({"query_id": query_id, "data": merged})
+        send_data(data)
 
     app.logger.debug("received: %s, sources left: %s", received.keys(), query_sources)
 
     return ""
+
+
+def send_data_(data):
+    try:
+        urllib2.urlopen("http://localhost:5003/", data)
+        app.logger.debug("sent %s", data)
+    except urllib2.URLError:
+        abort(502)
+
+def send_data(json_data):
+    HOST, PORT = "localhost", 50030
+
+    # Create a socket (SOCK_STREAM means a TCP socket)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print(json_data)
+    received = None
+
+    try:
+        # Connect to server and send data
+        sock.connect((HOST, PORT))
+        sock.sendall(json_data + "\n")
+
+        # Receive data from the server and shut down
+        received = sock.makefile().readline()
+        print(received)
+
+        print("Sent:     {}".format(json_data))
+        print("Received: {}".format(received))
+    finally:
+        sock.close()
+
+    return received
 
 
 @app.route("/status")
