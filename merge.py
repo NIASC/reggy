@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
 This will merge data when all is received
@@ -13,25 +13,82 @@ hash of sources per query_id, for which we are waiting for data.
 # TODO: Do we need both, probably not, as ``received`` contains no more info
 # than is provided in ``received``.
 
+import os
+import gnupg
 import json
-import urllib2
+import base64
+import logging
 import socket
-from flask import Flask
-from flask import request, abort, render_template
-app = Flask(__name__)
+import socketserver
+
+logger = logging.getLogger(__name__)
 
 received = {}
 query_sources = {}
 
+configfile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          'config.json')
+
+try:
+    config = json.load(open(configfile))
+except IOError:
+    logger.info('Config file not found, using defaults')
+    config = {}
+
+
+def encrypt(data, recipient):
+    # lots of config reading
+
+    # get encryption config from config file
+    # keydir could be null in the file to use the default key folder
+    encryption_config = config.get('encryption', {})
+    keydir = encryption_config.get('keydir', None)
+    if not keydir:
+        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "keys")
+
+    recipient_email = encryption_config.get('recipient', recipient)
+    if not recipient_email:
+        raise "Recipient %s not defined in config.json" % recipient
+
+    gpg = gnupg.GPG(gnupghome=keydir)
+    gpg.encoding = 'utf-8'
+
+    json_data = json.dumps(data)
+    encrypted_data = gpg.encrypt(json_data, [recipient_email]).data
+    encoded_data = base64.b64encode(encrypted_data)
+    return encoded_data
+
+
+def decrypt(data):
+    encryption_config = config.get('encryption', {})
+    keydir = encryption_config.get('keydir', None)
+    if not keydir:
+        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "keys")
+
+    gpg = gnupg.GPG(gnupghome=keydir)
+    gpg.encoding = 'utf-8'
+
+    encrypted_data = base64.b64decode(data)
+    json_data = gpg.decrypt(encrypted_data).data
+    print("ost", json_data)
+    decoded_json_data = str(json_data, "utf-8")
+    print(decoded_json_data)
+    data = json.loads(decoded_json_data)
+    return data
+
 
 def merge(lists):
     total = {}
-    registrys = lists.keys()
+    registrys = list(lists)
+    print(registrys, lists)
     if registrys:
         for id in lists[registrys[0]]:
             in_all = True
             data = {}
-            for registry in registrys:  # doing all as this is faster than looping twice
+            # doing all as this is faster than looping twice
+            for registry in registrys:
                 if id not in lists[registry]:
                     in_all = False
                     break
@@ -41,73 +98,26 @@ def merge(lists):
     return total
 
 
-@app.route("/", methods=['POST'])
-def receive_data():
-    data = request.get_json(True)
-    app.logger.debug("received %s", data)
-    query_id = data['query_id']
-    source_id = data['source_id']
-    sources = data['sources']
-
-    # first dataset using a query_id will set the acceptable sources
-    if not query_id in query_sources:
-        query_sources[query_id] = sources
-
-    if not unicode(source_id) in query_sources[query_id]:
-        # this is wrongly sent data. exit with bad_request
-        # this should be unnecessary
-        abort(400)
-
-    if not query_id in received:
-        received[query_id] = {}
-
-    # if accepted by registry make data ready to merge
-    if 'data' in data:
-        received[query_id][source_id] = data['data']
-
-    query_sources[query_id].remove(source_id)
-
-    # if query_sources is emtpy, this was the last (or only) sender. data
-    # should then be merged, and temporary storage should be cleaned. the last
-    # step is to send the merged data to the summary server.
-    if not query_sources[query_id]:
-        merged = merge(received[query_id])
-        app.logger.debug("merged %s", data)
-        del received[query_id]
-        del query_sources[query_id]
-        data = json.dumps({"query_id": query_id, "data": merged})
-        send_data(data)
-
-    app.logger.debug("received: %s, sources left: %s", received.keys(), query_sources)
-
-    return ""
-
-
-def send_data_(data):
-    try:
-        urllib2.urlopen("http://localhost:5003/", data)
-        app.logger.debug("sent %s", data)
-    except urllib2.URLError:
-        abort(502)
-
-def send_data(json_data):
+def send_data(data):
     HOST, PORT = "localhost", 50030
 
     # Create a socket (SOCK_STREAM means a TCP socket)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(json_data)
+    print(data)
     received = None
+    encrypted_data = encrypt(data, "sigurdga@edge")
+    print(encrypted_data)
 
     try:
         # Connect to server and send data
         sock.connect((HOST, PORT))
-        sock.sendall(json_data + "\n")
+        sock.sendall(encrypted_data + bytes("\n", "utf-8"))
 
         # Receive data from the server and shut down
         received = sock.makefile().readline()
         print(received)
 
-        print("Sent:     {}".format(json_data))
+        print("Sent:     {}".format(encrypted_data))
         print("Received: {}".format(received))
     finally:
         sock.close()
@@ -115,10 +125,59 @@ def send_data(json_data):
     return received
 
 
-@app.route("/status")
-def status():
-    return render_template("merge-status.html", queries=query_sources)
+class MergeHandler(socketserver.StreamRequestHandler):
+    def handle(self):
+        self.data = self.rfile.readline().strip()
+        print("1", self.data)
+        data = decrypt(self.data.decode("utf-8"))
+        print("2", data)
+
+        logger.debug("got %s", data)
+
+        query_id = data['query_id']
+        source_id = data['source_id']
+        sources = data['sources']
+
+        # first dataset using a query_id will set the acceptable sources
+        if query_id not in query_sources:
+            query_sources[query_id] = sources
+
+        print(source_id, query_sources[query_id])
+        if source_id not in query_sources[query_id]:
+            # this is wrongly sent data. exit with bad_request
+            # this should be unnecessary
+            response = ""
+            self.request.sendall(bytes(response, "utf-8"))
+
+        if query_id not in received:
+            received[query_id] = {}
+
+        # if accepted by registry make data ready to merge
+        if 'data' in data:
+            received[query_id][source_id] = data['data']
+
+        query_sources[query_id].remove(source_id)
+
+        # if query_sources is emtpy, this was the last (or only) sender. data
+        # should then be merged, and temporary storage should be cleaned. the
+        # last step is to send the merged data to the summary server.
+        if not query_sources[query_id]:
+            merged = merge(received[query_id])
+            logger.debug("merged %s", data)
+            del received[query_id]
+            del query_sources[query_id]
+            data = {"query_id": query_id, "data": merged}
+            send_data(data)
+
+        logger.debug("received: %s, sources left: %s", received.keys(),
+                     query_sources)
+
+        response = ""
+        self.request.sendall(bytes(response, "utf-8"))
 
 
 if __name__ == '__main__':
-    app.run(port=5002, debug=True)
+    HOST, PORT = "localhost", 50020
+
+    server = socketserver.TCPServer((HOST, PORT), MergeHandler)
+    server.serve_forever()
