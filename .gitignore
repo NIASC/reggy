@@ -1,3 +1,5 @@
 /venv
 /v3
 /keys/random_seed
+__pycache__
+*pyc

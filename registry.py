@@ -11,8 +11,9 @@ import csv
 import hashlib
 import gnupg
 import socket
-import base64
 import logging
+
+from lib import get_config, decrypt, send_data
 
 from flask import Flask, render_template, redirect
 
@@ -25,15 +26,7 @@ logging.basicConfig(
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('registry')
 
-configfile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          'config.json')
-
-try:
-    config = json.load(open(configfile))
-except IOError:
-    logger.info('Config file not found, using defaults')
-    config = {}
-
+config = get_config()
 # get encryption config from config file
 # keydir could be null in the file to use the default key folder
 encryption_config = config.get('encryption', {})
@@ -45,54 +38,6 @@ hash_config = config.get('hashing', {})
 
 gpg = gnupg.GPG(gnupghome=keydir)
 gpg.encoding = 'utf-8'
-
-
-def encrypt(data, recipient):
-    # lots of config reading
-
-    # get encryption config from config file
-    # keydir could be null in the file to use the default key folder
-    encryption_config = config.get('encryption', {})
-    keydir = encryption_config.get('keydir', None)
-    if not keydir:
-        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "keys")
-
-    recipient_email = encryption_config.get('recipient', recipient)
-    if not recipient_email:
-        raise "Recipient %s not defined in config.json" % recipient
-
-    gpg = gnupg.GPG(gnupghome=keydir)
-    gpg.encoding = 'utf-8'
-
-    json_data = json.dumps(data)
-    encrypted_data = gpg.encrypt(json_data, [recipient_email]).data
-    b64_data = base64.b64encode(encrypted_data)
-    return b64_data
-
-
-def decrypt(data):
-    encryption_config = config.get('encryption', {})
-    keydir = encryption_config.get('keydir', None)
-    if not keydir:
-        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "keys")
-
-    gpg = gnupg.GPG(gnupghome=keydir)
-    gpg.encoding = 'utf-8'
-
-    logger.debug("transferred %s", data)
-    encrypted_data = base64.b64decode(data)
-    logger.debug("encrypted   %s", encrypted_data)
-    json_data = gpg.decrypt(encrypted_data).data
-    logger.debug("decrypted   %s", json_data)
-    data = None
-    print(json_data)
-    decoded_json_data = str(json_data, "utf-8")
-    print(decoded_json_data)
-    if (decoded_json_data):
-        data = json.loads(decoded_json_data)
-    return data
 
 
 def find_indexes_from_fieldnames(headers, fieldnames):
@@ -111,10 +56,16 @@ def hash_id(registry_person_id):
     salt = hash_config.get('salt', "default salt should be overwritten")
     hash.update(bytes(salt, "utf-8"))
     hash.update(bytes(registry_person_id, "utf-8"))
-    return hash.hexdigest()
+    hexdigest = hash.hexdigest()
+    logger.debug("hashed %s to %s using salt %s", registry_person_id,
+                 hexdigest, salt)
+    return hexdigest
 
 
 def get_local_data(fieldnames, source_id):
+    """
+    Read and encrypt local data. Returned in a dictionary using anonymized ids
+    as keys"""
     with open(source_id + '.csv', 'r') as f:
         reader = csv.reader(f)
         tabular_data = [row for row in reader]
@@ -137,32 +88,6 @@ def get_local_data(fieldnames, source_id):
 
             data[id] = obj
         return {'data': data, 'source_id': source_id}
-
-
-def send_data(data):
-
-    HOST, PORT = "localhost", 50020
-
-    # Create a socket (SOCK_STREAM means a TCP socket)
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    logger.debug(data)
-    received = None
-
-    try:
-        # Connect to server and send data
-        sock.connect((HOST, PORT))
-        sock.sendall(encrypt(data, "sigurdga@edge") + bytes("\n", "utf-8"))
-
-        # Receive data from the server and shut down
-        received = sock.makefile().readline()
-        logger.debug(received)
-
-        logger.debug("Sent:     {}".format(data))
-        logger.debug("Received: {}".format(received))
-    finally:
-        sock.close()
-
-    return received
 
 
 def fetch_queries(source_id):
@@ -216,13 +141,15 @@ def send(source_id, method, query_id):
                     data = get_local_data(fieldnames, source_id)
                     data['query_id'] = query['id']
                     data['sources'] = query['sources']
-                    send_data(data)
-                    return redirect("/"+source_id)
+                    send_data(data, "sigurdga@edge",
+                              config['merge_server_port'])
+                    return redirect("/reg/"+source_id)
                 else:
                     data = {'source_id': source_id}
                     data['query_id'] = query['id']
                     data['sources'] = query['sources']
-                    send_data(data)
+                    send_data(data, "sigurdga@edge",
+                              config['merge_server_port'])
                     return redirect("/reg/"+source_id)
 
 

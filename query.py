@@ -4,11 +4,11 @@
 
 import os
 import json
-import gnupg
-import base64
 import logging
 import socketserver
 from urllib import request
+
+from lib import encrypt
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -25,35 +25,6 @@ try:
 except IOError:
     logger.warning('Config file not found, using defaults')
     config = {}
-
-
-def encrypt(data, recipient):
-    # lots of config reading
-
-    # get encryption config from config file
-    # keydir could be null in the file to use the default key folder
-    encryption_config = config.get('encryption', {})
-    keydir = encryption_config.get('keydir', None)
-    if not keydir:
-        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "keys")
-
-    recipient_email = encryption_config.get('recipient', recipient)
-    if not recipient_email:
-        err = "Recipient %s not defined in config.json" % recipient
-        logger.error(err)
-        raise err
-
-    gpg = gnupg.GPG(gnupghome=keydir)
-    gpg.encoding = 'utf-8'
-
-    json_data = json.dumps(data)
-    logger.debug("data        %s", json_data)
-    encrypted_data = gpg.encrypt(json_data, [recipient_email]).data
-    logger.debug("encrypted   %s", encrypted_data)
-    encoded_data = base64.b64encode(encrypted_data)
-    logger.debug("encoded     %s", encoded_data)
-    return encoded_data
 
 
 def fetch_queries(registry_id):
