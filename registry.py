@@ -172,21 +172,18 @@ def fetch_queries(source_id):
 
     # Create a socket (SOCK_STREAM means a TCP socket)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    logger.debug(data)
     received = None
 
     try:
         # Connect to server and send data
         sock.connect((HOST, PORT))
+        logger.debug("sending       %s", data)
         sock.sendall(bytes(data, "utf-8") + bytes("\n", "utf-8"))
 
         # Receive data from the server and shut down
         received = sock.makefile().readline()
-        logger.debug(received)
+        logger.debug("received      %s", received)
         decrypted_data = decrypt(received)
-
-        logger.debug("Sent:     {}".format(data))
-        logger.debug("Received: {}".format(received))
     finally:
         sock.close()
 
@@ -202,9 +199,8 @@ def index():
 def queries(source_id):
     queries = fetch_queries(source_id)
     if queries:
-        decoded_queries = json.loads(queries)
         return render_template('queries.html',
-                               queries=decoded_queries['queries'],
+                               queries=queries['queries'],
                                source_id=source_id)
 
 
@@ -212,8 +208,7 @@ def queries(source_id):
 def send(source_id, method, query_id):
     queries = fetch_queries(source_id)
     if queries:
-        decoded_queries = json.loads(queries)
-        for query in decoded_queries["queries"]:
+        for query in queries["queries"]:
             logger.debug(query)
             if query["id"] == query_id:
                 if method == "accept":
@@ -228,7 +223,7 @@ def send(source_id, method, query_id):
                     data['query_id'] = query['id']
                     data['sources'] = query['sources']
                     send_data(data)
-                    return redirect("/"+source_id)
+                    return redirect("/reg/"+source_id)
 
 
 if __name__ == '__main__':

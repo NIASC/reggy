@@ -48,11 +48,11 @@ def decrypt(data):
     gpg = gnupg.GPG(gnupghome=keydir)
     gpg.encoding = 'utf-8'
 
-    logger.debug("transferred %s", data)
+    logger.debug("encoded     %s", data)
     encrypted_data = base64.b64decode(data)
     logger.debug("encrypted   %s", encrypted_data)
     json_data = gpg.decrypt(encrypted_data).data
-    logger.debug("decrypted   %s", json_data)
+    logger.debug("data        %s", json_data)
     decoded_json_data = str(json_data, "utf-8")
     data = json.loads(decoded_json_data)
     return data

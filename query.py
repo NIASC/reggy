@@ -23,7 +23,7 @@ configfile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 try:
     config = json.load(open(configfile))
 except IOError:
-    logger.info('Config file not found, using defaults')
+    logger.warning('Config file not found, using defaults')
     config = {}
 
 
@@ -40,26 +40,34 @@ def encrypt(data, recipient):
 
     recipient_email = encryption_config.get('recipient', recipient)
     if not recipient_email:
-        raise "Recipient %s not defined in config.json" % recipient
+        err = "Recipient %s not defined in config.json" % recipient
+        logger.error(err)
+        raise err
 
     gpg = gnupg.GPG(gnupghome=keydir)
     gpg.encoding = 'utf-8'
 
     json_data = json.dumps(data)
+    logger.debug("data        %s", json_data)
     encrypted_data = gpg.encrypt(json_data, [recipient_email]).data
+    logger.debug("encrypted   %s", encrypted_data)
     encoded_data = base64.b64encode(encrypted_data)
+    logger.debug("encoded     %s", encoded_data)
     return encoded_data
 
 
 def fetch_queries(registry_id):
     data = request.urlopen("http://localhost:5000/queries").read()
+    logger.debug("all queries %s", data.decode("utf-8"))
     queries = json.loads(data.decode("utf-8"))
     filtered = []
     for query in queries['queries']:
         if registry_id in query['sources']:
             query['fields'] = query[registry_id]
             filtered.append(query)
-    return filtered
+    queries = {"queries": filtered}
+    logger.debug("filtered    %s", queries)
+    return queries
 
 
 class QueryHandler(socketserver.StreamRequestHandler):
@@ -70,14 +78,12 @@ class QueryHandler(socketserver.StreamRequestHandler):
 
         # TODO: Create good filter
         if 'source_id' in data and data['source_id'] in ['hunt', 'cancer']:
-            filtered = fetch_queries(data['source_id'])
+            queries = fetch_queries(data['source_id'])
 
-            response = json.dumps({"queries": filtered})
-            encrypted_data = encrypt(response, "sigurdga@edge")
+            encrypted = encrypt(queries, "sigurdga@edge")
 
-            print("{} wrote:".format(self.client_address[0]))
-            print(response)
-            self.request.sendall(encrypted_data + bytes("\n", "utf-8"))
+            logger.info("sending     %s", encrypted)
+            self.request.sendall(encrypted + bytes("\n", "utf-8"))
 
 
 if __name__ == "__main__":
