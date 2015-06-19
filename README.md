@@ -29,10 +29,12 @@ Dependencies
 
 Instructions:
 
+Be sure everything is installed using python3
+
     apt-get install python-pip python-virtualenv
     apt-get install build-essential python-dev mongodb  # for python-dev and mongodb
     # the next will specify where the virtual env is going to be located
-    virtualenv2 venv
+    virtualenv venv
     # use the virtual python environment instead of the global environment
     source venv/bin/activate
     # install flask and the mongodb bindings in the venv folder
