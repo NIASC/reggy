@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
 This will mimic a health registry, not using correct data, but something
@@ -86,8 +86,12 @@ def decrypt(data):
     logger.debug("encrypted   %s", encrypted_data)
     json_data = gpg.decrypt(encrypted_data).data
     logger.debug("decrypted   %s", json_data)
-    #decoded_json_data = str(json_data, "utf-8") // not needed in python2
-    data = json.loads(json_data)
+    data = None
+    print(json_data)
+    decoded_json_data = str(json_data, "utf-8")
+    print(decoded_json_data)
+    if (decoded_json_data):
+        data = json.loads(decoded_json_data)
     return data
 
 
@@ -104,8 +108,9 @@ def find_indexes_from_fieldnames(headers, fieldnames):
 
 def hash_id(registry_person_id):
     hash = hashlib.sha256()
-    hash.update(hash_config.get('salt', "default salt should be overwritten"))
-    hash.update(registry_person_id)
+    salt = hash_config.get('salt', "default salt should be overwritten")
+    hash.update(bytes(salt, "utf-8"))
+    hash.update(bytes(registry_person_id, "utf-8"))
     return hash.hexdigest()
 
 
@@ -128,6 +133,8 @@ def get_local_data(fieldnames, source_id):
                 recipient_email = encryption_config.get('recipient',
                                                         'sigurdga@edge')
                 obj = gpg.encrypt(json.dumps(obj), [recipient_email]).data
+                obj = obj.decode("utf-8")
+
             data[id] = obj
         return {'data': data, 'source_id': source_id}
 
@@ -138,20 +145,20 @@ def send_data(data):
 
     # Create a socket (SOCK_STREAM means a TCP socket)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(data)
+    logger.debug(data)
     received = None
 
     try:
         # Connect to server and send data
         sock.connect((HOST, PORT))
-        sock.sendall(encrypt(data, "sigurdga@edge") + "\n")
+        sock.sendall(encrypt(data, "sigurdga@edge") + bytes("\n", "utf-8"))
 
         # Receive data from the server and shut down
         received = sock.makefile().readline()
-        print(received)
+        logger.debug(received)
 
-        print("Sent:     {}".format(data))
-        print("Received: {}".format(received))
+        logger.debug("Sent:     {}".format(data))
+        logger.debug("Received: {}".format(received))
     finally:
         sock.close()
 
@@ -165,26 +172,25 @@ def fetch_queries(source_id):
 
     # Create a socket (SOCK_STREAM means a TCP socket)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(data)
+    logger.debug(data)
     received = None
 
     try:
         # Connect to server and send data
         sock.connect((HOST, PORT))
-        sock.sendall(data + "\n")
+        sock.sendall(bytes(data, "utf-8") + bytes("\n", "utf-8"))
 
         # Receive data from the server and shut down
         received = sock.makefile().readline()
-        print(received)
+        logger.debug(received)
         decrypted_data = decrypt(received)
 
-        print("Sent:     {}".format(data))
-        print("Received: {}".format(received))
+        logger.debug("Sent:     {}".format(data))
+        logger.debug("Received: {}".format(received))
     finally:
         sock.close()
 
     return decrypted_data
-
 
 
 @app.route("/")
@@ -192,7 +198,7 @@ def index():
     return render_template('registries.html')
 
 
-@app.route("/<source_id>")
+@app.route("/reg/<source_id>")
 def queries(source_id):
     queries = fetch_queries(source_id)
     if queries:
@@ -208,7 +214,7 @@ def send(source_id, method, query_id):
     if queries:
         decoded_queries = json.loads(queries)
         for query in decoded_queries["queries"]:
-            print query
+            logger.debug(query)
             if query["id"] == query_id:
                 if method == "accept":
                     fieldnames = query['fields']
