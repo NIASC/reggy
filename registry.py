@@ -8,12 +8,13 @@ similar.
 import os
 import json
 import csv
+import base64
 import hashlib
 import gnupg
 import socket
 import logging
 
-from lib import get_config, decrypt, send_data
+from lib import get_config, encrypt, decrypt, send_data
 
 from flask import Flask, render_template, redirect
 
@@ -98,6 +99,8 @@ def fetch_queries(source_id):
     # Create a socket (SOCK_STREAM means a TCP socket)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     received = None
+    all_signed_queries = []
+    this_signed_queries = {}
 
     try:
         # Connect to server and send data
@@ -109,10 +112,40 @@ def fetch_queries(source_id):
         received = sock.makefile().readline()
         logger.debug("received      %s", received)
         decrypted_data = decrypt(received)
+
+        logger.debug("decrypted_data %s", decrypted_data)
+        queries = decrypted_data['queries']
+        logger.debug("queries       %s", queries)
+        for query in queries:
+            logger.debug("query     %s", query)
+            if source_id in query['signed_by']:
+                if set(query["signed_by"]) == set(query["sources"]):
+                    logger.info("Is ready: %s", query["id"])
+                    all_signed_queries.append(query)
+                else:
+                    logger.info("I have signed this, but not everybody else: %s", query["id"])
+
+            else:
+                original = query['signed']
+
+                # verify
+                verified = gpg.verify(original)
+                if not verified:
+                    raise ValueError(
+                        "Signature could not be verified for query %s",
+                        query)
+
+                # sign
+                signed = gpg.sign(original)
+                this_signed_queries[query['id']] = signed.data.decode("utf-8")
+        logger.debug("signed queries %s", this_signed_queries)
+        encrypted = encrypt(this_signed_queries, "sigurdga@edge")
+        sock.sendall(encrypted + bytes("\n", "utf-8"))
+
     finally:
         sock.close()
 
-    return decrypted_data
+    return all_signed_queries
 
 
 @app.route("/")
@@ -123,34 +156,42 @@ def index():
 @app.route("/reg/<source_id>")
 def queries(source_id):
     queries = fetch_queries(source_id)
-    if queries:
+    if not queries:
+        raise ValueError("No queries ready yet")
+    else:
+        logger.debug("Queries: %s", queries)
         return render_template('queries.html',
-                               queries=queries['queries'],
+                               queries=queries,
                                source_id=source_id)
 
 
 @app.route("/<source_id>/<method>/<query_id>")
 def send(source_id, method, query_id):
     queries = fetch_queries(source_id)
-    if queries:
-        for query in queries["queries"]:
-            logger.debug(query)
+    if not queries:
+        raise ValueError("No queries ready yet")
+    else:
+        logger.debug("Queries: %s", queries)
+        for query in queries:
+            logger.debug("Check query %s", query)
             if query["id"] == query_id:
                 if method == "accept":
-                    fieldnames = query['fields']
+                    logger.info("Accepting %s", query_id)
+                    fieldnames = query['fields'][source_id]
                     data = get_local_data(fieldnames, source_id)
                     data['query_id'] = query['id']
                     data['sources'] = query['sources']
                     send_data(data, "sigurdga@edge",
                               config['merge_server_port'])
-                    return redirect("/reg/"+source_id)
                 else:
+                    logger.warning("Rejecting %s", query_id)
                     data = {'source_id': source_id}
                     data['query_id'] = query['id']
                     data['sources'] = query['sources']
                     send_data(data, "sigurdga@edge",
                               config['merge_server_port'])
-                    return redirect("/reg/"+source_id)
+                logger.debug("Will now redirect")
+                return redirect("/reg/"+source_id)
 
 
 if __name__ == '__main__':
