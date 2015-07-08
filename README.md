@@ -6,48 +6,56 @@ Biobank inventory
 
 CSV files contain dummy data
 
-``merge.py`` runs a simple merge server on http://localhost:5000, that will
-merge data coming from different registries.
+``web.py`` will run a web server form where users can create queries.
+
+``query.py`` will serve the registries new queries and make them sign and
+verify the queries before they are processed.
+
+``registry.py`` will fetch queries from query server and push fake data to
+the merge server, when registry owners accept the queries. For simulation, you
+can accept or decline queries on port 5005. This will be removed in the future.
+
+``merge.py`` runs a simple merge server that will merge data coming from
+different registries.
 
 ``summarize.py`` is as service to do simple filtering (aka counting) on the
 results.
 
-``query.py`` will serve the registries new queries on http://localhost:5001.
-
-``web.py`` will serve users a form where they can create queries
-
-``registry.py`` will fetch queries from _query_ servers and push fake data to
-the _merge_ server, when registry owners accept the queries.
+A presentation layer that will decrypt metadata and make data presentable will
+be added in the future.
 
 Dependencies
 ------------
 
-* flask micro web server
-* mongodb to store queries in a database
-* virtualenv to install flask as user
-* pip to install the other two
+* python3
+* virtualenv for local installation without interfering with the systems
+* pip to install other dependencies
+* mongodb to store queries in a database on the web server. None of the secure
+  servers will have a database added, everything will run in memory.
 
 Instructions:
 
-Be sure everything is installed using python3
-
-    apt-get install python-pip python-virtualenv
-    apt-get install build-essential python-dev mongodb  # for python-dev and mongodb
-    # the next will specify where the virtual env is going to be located
-    virtualenv venv
+    apt-get install python3-pip python3-virtualenv
+    apt-get install build-essential python3-dev mongodb  # for python-dev and mongodb
+    # the next will create a virtual python3 environment in the venv folder
+    virtualenv --python /usr/bin/python3 venv
     # use the virtual python environment instead of the global environment
     source venv/bin/activate
-    # install flask and the mongodb bindings in the venv folder
-    pip install flask pymongo python-gnupg
+    # install dependencies into the venv folder
+    pip install -r requirements
 
 Usage
 -----
 
 In a lot of terminals, run ``source venv/bin/activate`` and one of the
-services: web, query, merge, summarize, registry. Then do a few queries from
-``localhost:5000/search`` and do manual filtering for the registries at
-``localhost:5005``. There should hopefully be some status output in the
-terminal running the summarize command.
+services: web, query, merge, summarize, registry. The lazy can paste this to
+run commands in tabs in a new gnome-terminal window:
+
+    gnome-terminal --tab -e "./venv/bin/python web.py" --tab -e "./venv/bin/python query.py" --tab -e "./venv/bin/python registry.py" --tab -e "./venv/bin/python merge.py" --tab -e "./venv/bin/python summarize.py"
+
+Then do a few queries from ``localhost:5000/search`` and do manual filtering
+for the registries at ``localhost:5005``. There should hopefully be some status
+output in the terminal running the summarize command.
 
 Configuration
 -------------
