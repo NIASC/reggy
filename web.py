@@ -10,16 +10,18 @@ import uuid
 from datetime import datetime
 from pymongo import MongoClient
 from flask import Flask, request, render_template, jsonify
-#from flask import Response  # needed when returning raw data from mongo
-#from bson import json_util
+# from flask import Response  # needed when returning raw data from mongo
+# from bson import json_util
 
 app = Flask(__name__)
 client = MongoClient()
 db = client.reggy_query
 
+
 @app.route("/")
 def index():
     return render_template('index.html')
+
 
 @app.route("/search", methods=['GET', 'POST'])
 def search():
@@ -30,14 +32,18 @@ def search():
         query = {
             "_id": uuid.uuid4().hex,
             "username": username,
-            "hunt": hunt,
-            "cancer": cancer,
+            "fields": {
+                "hunt": hunt,
+                "cancer": cancer
+            },
             "query_time": datetime.utcnow()
         }
         query_id = db.queries.insert(query)
-        return u"Takk for din spørring, med id %s og data %s" % (query_id, query)
+        return u"Takk for din spørring, med id %s og data %s" % (
+            query_id, query)
     else:
         return render_template('search.html')
+
 
 @app.route("/queries")
 def queries():
@@ -52,12 +58,7 @@ def queries():
 
         # TODO: Make the next step more generic
         # Will need a more generic solution in the web forms as well
-        sources = []
-        if len(query["hunt"]):
-            sources.append("hunt")
-        if len(query["cancer"]):
-            sources.append("cancer")
-        query["sources"] = sources
+        query["sources"] = list(query['fields'])
         queries.append(query)
     return jsonify(queries=queries)
     # Do the next if jsonify cannot be used
@@ -67,7 +68,7 @@ def queries():
 
 # TODO: merge with /queries or delete completely
 @app.route("/non-public/list")
-def list():
+def list_queries():
     queries = db.queries.find()
     return render_template('list.html', queries=queries)
 
