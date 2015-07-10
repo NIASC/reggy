@@ -37,16 +37,16 @@ class SummaryHandler(socketserver.StreamRequestHandler):
         self.data = self.rfile.readline().strip()
         data = decrypt(self.data)
 
-        if encryption_config.get('encrypt_data', True):
-            results = {}
-            # decrypt
-            for id, result in data["data"].items():
-                results[id] = {}
-                for source_id, encrypted in result.items():
-                    results[id][source_id] = gpg.decrypt(encrypted).data
+        results = {}
+        # decrypt
+        for id, result in data["data"].items():
+            results[id] = {}
+            for source_id, encrypted in result.items():
+                results[id][source_id] = gpg.decrypt(encrypted).data
 
-        else:
-            results = data["data"]
+        deidentified_results = list(results.values())
+        logger.info("deidentified: %s", deidentified_results)
+
 
         # TODO: Add filter
 
