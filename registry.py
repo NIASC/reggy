@@ -60,7 +60,7 @@ def hash_id(original_id, salt):
     return encoded_id.decode("utf-8")
 
 
-def get_local_data(fieldnames, source_id):
+def get_local_data(fieldnames, source_id, salt_for_id_hashing):
     """
     Read and encrypt local data. Returned in a dictionary using anonymized ids
     as keys"""
@@ -71,7 +71,7 @@ def get_local_data(fieldnames, source_id):
         indexes_to_use = find_indexes_from_fieldnames(headers, fieldnames)
         data = {}
         for line in tabular_data[1:]:
-            hashed_id = hash_id(line[0], "RANDOM SALT")
+            hashed_id = hash_id(line[0], salt_for_id_hashing)
             obj = {}
             for field in indexes_to_use:
                 obj[headers[field]] = line[field]
@@ -171,10 +171,21 @@ def send(source_id, method, query_id):
             if query["id"] == query_id:
                 if method == "accept":
                     logger.info("Accepting %s", query_id)
+
+                    # Find field names for this source
                     fieldnames = query['fields'][source_id]
-                    data = get_local_data(fieldnames, source_id)
+
+                    # Use signed query as salt for id hashing
+                    salt_for_id_hashing = query['signed']
+                    data = get_local_data(fieldnames,
+                                          source_id,
+                                          salt_for_id_hashing)
+
+                    # Copy id and total sources to data sent to merge server
                     data['query_id'] = query['id']
                     data['sources'] = query['sources']
+
+                    # Send data
                     send_data(data, "sigurdga@edge",
                               config['merge_server_port'])
                 else:
