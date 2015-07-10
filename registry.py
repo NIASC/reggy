@@ -9,10 +9,10 @@ import os
 import json
 import csv
 import base64
-import hashlib
 import gnupg
 import socket
 import logging
+import scrypt
 
 from lib import get_config, encrypt, decrypt, send_data
 
@@ -52,15 +52,12 @@ def find_indexes_from_fieldnames(headers, fieldnames):
     return indexes
 
 
-def hash_id(registry_person_id):
-    hash = hashlib.sha256()
-    salt = hash_config.get('salt', "default salt should be overwritten")
-    hash.update(bytes(salt, "utf-8"))
-    hash.update(bytes(registry_person_id, "utf-8"))
-    hexdigest = hash.hexdigest()
-    logger.debug("hashed %s to %s using salt %s", registry_person_id,
-                 hexdigest, salt)
-    return hexdigest
+def hash_id(original_id, salt):
+    hashed_id = scrypt.hash(original_id, salt)
+    logger.debug("hashed %s to %s using salt %s", original_id, hashed_id, salt)
+    encoded_id = base64.b64encode(hashed_id)
+    logger.debug("hashed_id encoded to", encoded_id)
+    return encoded_id.decode("utf-8")
 
 
 def get_local_data(fieldnames, source_id):
@@ -74,10 +71,7 @@ def get_local_data(fieldnames, source_id):
         indexes_to_use = find_indexes_from_fieldnames(headers, fieldnames)
         data = {}
         for line in tabular_data[1:]:
-            if hash_config.get('hash_ids', True):
-                id = hash_id(line[0])
-            else:
-                id = line[0]
+            hashed_id = hash_id(line[0], "RANDOM SALT")
             obj = {}
             for field in indexes_to_use:
                 obj[headers[field]] = line[field]
@@ -87,7 +81,7 @@ def get_local_data(fieldnames, source_id):
                 obj = gpg.encrypt(json.dumps(obj), [recipient_email]).data
                 obj = obj.decode("utf-8")
 
-            data[id] = obj
+            data[hashed_id] = obj
         return {'data': data, 'source_id': source_id}
 
 

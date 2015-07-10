@@ -36,7 +36,7 @@ Dependencies
 Instructions:
 
     apt-get install python3-pip python3-virtualenv
-    apt-get install build-essential python3-dev mongodb  # for python-dev and mongodb
+    apt-get install build-essential python3-dev mongodb libssl-dev
     # the next will create a virtual python3 environment in the venv folder
     virtualenv --python /usr/bin/python3 venv
     # use the virtual python environment instead of the global environment
