@@ -24,7 +24,9 @@ def get_config():
             'merge_server_host': 'localhost',
             'merge_server_port': 50020,
             'summary_server_host': 'localhost',
-            'summary_server_port': 50030
+            'summary_server_port': 50030,
+            'presentation_server_host': 'localhost',
+            'presentation_server_port': 50040
         }
     return config
 

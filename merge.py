@@ -32,22 +32,28 @@ query_sources = {}
 config = get_config()
 
 
-def merge(lists):
-    total = {}
-    registrys = list(lists)
-    logger.debug("Merging data from sources: %s", ", ".join(registrys))
-    if registrys:
-        for id in lists[registrys[0]]:
+def merge(data):
+    """
+    Data is a dict of source ids and a new dict. The inner dict consists of
+    hashed ids and encrypted data per person.
+
+    We return merged data in a dict where the hashed id is the key.
+    """
+    total = []
+    registries = list(data)
+    logger.debug("Merging data from sources: %s", ", ".join(registries))
+    if registries:  # We have something to do
+        for hashed_id in data[registries[0]]:
             in_all = True
-            data = {}
+            merged_data = {}
             # doing all as this is faster than looping twice
-            for registry in registrys:
-                if id not in lists[registry]:
+            for registry in registries:
+                if hashed_id not in data[registry]:
                     in_all = False
                     break
-                data[registry] = lists[registry][id]
+                merged_data[registry] = data[registry][hashed_id]
             if in_all:
-                total[id] = data
+                total.append(list(merged_data.values()))
     return total
 
 
@@ -93,6 +99,7 @@ class MergeHandler(socketserver.StreamRequestHandler):
         if not query_sources[query_id]:
             merged = merge(received[query_id])
             logger.debug("Merged %s", data)
+            logger.debug("Merged to %s", merged)
             logger.debug("Removing data for query id %s", query_id)
             del received[query_id]
             logger.debug("Removing query %s from query sources", query_id)

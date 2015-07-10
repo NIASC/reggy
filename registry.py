@@ -42,6 +42,10 @@ gpg.encoding = 'utf-8'
 
 
 def find_indexes_from_fieldnames(headers, fieldnames):
+    """
+    Takes a list of desired field names and finds their indexes from the
+    headers.
+    """
     indexes = []
     for fieldname in fieldnames:
         try:
@@ -50,6 +54,19 @@ def find_indexes_from_fieldnames(headers, fieldnames):
         except ValueError:
             pass
     return indexes
+
+
+def generate_encrypted_fieldnames(fieldnames, source_id):
+    """
+    Takes list of fieldnames and generates a dict where the values are
+    encrypted versions of the fieldnames. Encrypted for the presentation
+    server ideally, but for the summary server for now.
+    """
+
+    return {
+        fn: encrypt(source_id + ":" + fn, "sigurdga@edge").decode("utf-8")
+        for fn in fieldnames
+    }
 
 
 def hash_id(original_id, salt):
@@ -63,25 +80,37 @@ def hash_id(original_id, salt):
 def get_local_data(fieldnames, source_id, salt_for_id_hashing):
     """
     Read and encrypt local data. Returned in a dictionary using anonymized ids
-    as keys"""
+    as keys.
+
+    This will be replaced with specific readers at actual registries.
+    """
+
     with open(source_id + '.csv', 'r') as f:
         reader = csv.reader(f)
         tabular_data = [row for row in reader]
         headers = [h.strip() for h in tabular_data[0]]
         indexes_to_use = find_indexes_from_fieldnames(headers, fieldnames)
+        encrypted_fieldnames = generate_encrypted_fieldnames(fieldnames,
+                                                             source_id)
         data = {}
         for line in tabular_data[1:]:
             hashed_id = hash_id(line[0], salt_for_id_hashing)
-            obj = {}
+            dataline = {}
             for field in indexes_to_use:
-                obj[headers[field]] = line[field]
+                fieldname = headers[field]
+                key = encrypted_fieldnames[fieldname]
+                value = line[field]
+                dataline[key] = value
             if encryption_config.get('encrypt_data', True):
                 recipient_email = encryption_config.get('recipient',
                                                         'sigurdga@edge')
-                obj = gpg.encrypt(json.dumps(obj), [recipient_email]).data
-                obj = obj.decode("utf-8")
+                dataline = gpg.encrypt(
+                    json.dumps(dataline),
+                    [recipient_email]
+                ).data
+                dataline = dataline.decode("utf-8")
 
-            data[hashed_id] = obj
+            data[hashed_id] = dataline
         return {'data': data, 'source_id': source_id}
 
 
