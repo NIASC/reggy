@@ -14,14 +14,13 @@ relevant for this registry. The registry get a limited time to sign queries and
 return. During that time, signing is blocked for other registries.
 """
 
-import os
 import json
-import gnupg
 import logging
 import socketserver
 from urllib import request
 
-from lib import get_config, encrypt, decrypt
+from lib import get_config, sign, verify
+from lib import serialize_encrypt_and_encode, decode_decrypt_and_deserialize
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -31,15 +30,6 @@ logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('query')
 
 config = get_config()
-# get encryption config from config file
-# keydir could be null in the file to use the default key folder
-encryption_config = config.get('encryption', {})
-keydir = encryption_config.get('keydir', None)
-if not keydir:
-    keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys")
-
-gpg = gnupg.GPG(gnupghome=keydir)
-gpg.encoding = 'utf-8'
 
 cached_queries = {}
 
@@ -55,7 +45,7 @@ def fetch_queries(registry_id):
         if query_id not in cached_queries:
             query['signed_by'] = []
             original = json.dumps(query['fields'])
-            signed = gpg.sign(original)
+            signed = sign(original)
             query['signed'] = signed.data.decode("utf-8")
             cached_queries[query_id] = query
 
@@ -76,11 +66,11 @@ class QueryHandler(socketserver.StreamRequestHandler):
         data = json.loads(self.data.decode("utf-8"))
 
         # TODO: Create good filter
-        # TODO: Source ID should be replaced by mapping to IP/PORT for registries
+        # TODO: Source ID should be replaced by mapping to IP/PORT
         if 'source_id' in data and data['source_id'] in ['hunt', 'cancer']:
             queries = fetch_queries(data['source_id'])
 
-            encrypted = encrypt(queries, "sigurdga@edge")
+            encrypted = serialize_encrypt_and_encode(queries, "sigurdga@edge")
 
             logger.info("sending     %s", encrypted)
             self.request.sendall(encrypted + bytes("\n", "utf-8"))
@@ -88,13 +78,13 @@ class QueryHandler(socketserver.StreamRequestHandler):
             received = self.rfile.readline().strip()
             logger.debug("received  %s", received)
 
-            signed_queries = decrypt(received)
+            signed_queries = decode_decrypt_and_deserialize(received)
 
             logger.debug("decrypted_data %s", signed_queries)
             # reset timeout lock
             for query_id, query in signed_queries.items():
                 # verify
-                verified = gpg.verify(query)
+                verified = verify(query)
                 if not verified:
                     raise ValueError(
                         "Signature could not be verified for query_id %s",

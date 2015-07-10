@@ -21,8 +21,7 @@ different registries.
 ``summarize.py`` is as service to do simple filtering (aka counting) on the
 results.
 
-A presentation layer that will decrypt metadata and make data presentable will
-be added in the future.
+``present.py`` will decrypt metadata and make everything understandable.
 
 Dependencies
 ------------
@@ -51,7 +50,7 @@ In a lot of terminals, run ``source venv/bin/activate`` and one of the
 services: web, query, merge, summarize, registry. The lazy can paste this to
 run commands in tabs in a new gnome-terminal window:
 
-    gnome-terminal --tab -e "./venv/bin/python web.py" --tab -e "./venv/bin/python query.py" --tab -e "./venv/bin/python registry.py" --tab -e "./venv/bin/python merge.py" --tab -e "./venv/bin/python summarize.py"
+    gnome-terminal --tab -e "./venv/bin/python web.py" --tab -e "./venv/bin/python query.py" --tab -e "./venv/bin/python registry.py" --tab -e "./venv/bin/python merge.py" --tab -e "./venv/bin/python summarize.py" --tab -e "./venv/bin/python present.py"
 
 Then do a few queries from ``localhost:5000/search`` and do manual filtering
 for the registries at ``localhost:5005``. There should hopefully be some status

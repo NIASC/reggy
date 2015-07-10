@@ -5,16 +5,15 @@ This will mimic a health registry, not using correct data, but something
 similar.
 """
 
-import os
-import json
 import csv
 import base64
-import gnupg
 import socket
 import logging
 import scrypt
 
-from lib import get_config, encrypt, decrypt, send_data
+from lib import get_config, verify, sign, serialize, serialize_and_encrypt
+from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_encode
+from lib import serialize_encrypt_and_send
 
 from flask import Flask, render_template, redirect
 
@@ -28,17 +27,6 @@ logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('registry')
 
 config = get_config()
-# get encryption config from config file
-# keydir could be null in the file to use the default key folder
-encryption_config = config.get('encryption', {})
-keydir = encryption_config.get('keydir', None)
-if not keydir:
-    keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys")
-
-hash_config = config.get('hashing', {})
-
-gpg = gnupg.GPG(gnupghome=keydir)
-gpg.encoding = 'utf-8'
 
 
 def find_indexes_from_fieldnames(headers, fieldnames):
@@ -64,7 +52,7 @@ def generate_encrypted_fieldnames(fieldnames, source_id):
     """
 
     return {
-        fn: encrypt(source_id + ":" + fn, "sigurdga@edge").decode("utf-8")
+        fn: serialize_and_encrypt(source_id + ":" + fn, "sigurdga@edge").decode("utf-8")
         for fn in fieldnames
     }
 
@@ -101,14 +89,8 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
                 key = encrypted_fieldnames[fieldname]
                 value = line[field]
                 dataline[key] = value
-            if encryption_config.get('encrypt_data', True):
-                recipient_email = encryption_config.get('recipient',
-                                                        'sigurdga@edge')
-                dataline = gpg.encrypt(
-                    json.dumps(dataline),
-                    [recipient_email]
-                ).data
-                dataline = dataline.decode("utf-8")
+            dataline = serialize_and_encrypt(dataline, "sigurdga@edge")
+            dataline = dataline.decode("utf-8")
 
             data[hashed_id] = dataline
         return {'data': data, 'source_id': source_id}
@@ -117,7 +99,7 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
 def fetch_queries(source_id):
     logger.debug("fetching queries")
     HOST, PORT = "localhost", 50010
-    data = json.dumps({"source_id": source_id})
+    data = serialize({"source_id": source_id})
 
     # Create a socket (SOCK_STREAM means a TCP socket)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -134,7 +116,7 @@ def fetch_queries(source_id):
         # Receive data from the server and shut down
         received = sock.makefile().readline()
         logger.debug("received      %s", received)
-        decrypted_data = decrypt(received)
+        decrypted_data = decode_decrypt_and_deserialize(received)
 
         logger.debug("decrypted_data %s", decrypted_data)
         queries = decrypted_data['queries']
@@ -154,17 +136,18 @@ def fetch_queries(source_id):
                 original = query['signed']
 
                 # verify
-                verified = gpg.verify(original)
+                verified = verify(original)
                 if not verified:
                     raise ValueError(
                         "Signature could not be verified for query %s",
                         query)
 
                 # sign
-                signed = gpg.sign(original)
+                signed = sign(original)
                 this_signed_queries[query['id']] = signed.data.decode("utf-8")
         logger.debug("signed queries %s", this_signed_queries)
-        encrypted = encrypt(this_signed_queries, "sigurdga@edge")
+        encrypted = serialize_encrypt_and_encode(this_signed_queries,
+                                                 "sigurdga@edge")
         sock.sendall(encrypted + bytes("\n", "utf-8"))
 
     finally:
@@ -211,15 +194,15 @@ def send(source_id, method, query_id):
                 data['sources'] = query['sources']
 
                 # Send data
-                send_data(data, "sigurdga@edge",
-                          config['merge_server_port'])
+                serialize_encrypt_and_send(data, "sigurdga@edge",
+                                           config['merge_server_port'])
             else:
                 logger.warning("Rejecting %s", query_id)
                 data = {'source_id': source_id}
                 data['query_id'] = query['id']
                 data['sources'] = query['sources']
-                send_data(data, "sigurdga@edge",
-                          config['merge_server_port'])
+                serialize_encrypt_and_send(data, "sigurdga@edge",
+                                           config['merge_server_port'])
             logger.debug("Will now redirect")
             return redirect("/reg/"+source_id)
 
