@@ -3,8 +3,9 @@
 <title>Queries for {{source_id}}</title>
 <h1>Queries for {{source_id}}</h1>
 
-{% for query in queries %}
+{% if queries %}
 <table>
+    {% for query in queries %}
     <tr>
         <th>{{query.id}}</th>
         <td>{{query.fields|join(", ")}}</td>
@@ -13,6 +14,9 @@
             <a href="/{{source_id}}/reject/{{query.id}}">Reject</a>
         </td>
     </tr>
+    {% endfor %}
 </table>
-{% endfor %}
+{% else %}
+<i>No signed queries ready yet. You may reload when you want.</i>
+{% endif %}
 

@@ -150,53 +150,47 @@ def index():
 @app.route("/reg/<source_id>")
 def queries(source_id):
     queries = fetch_queries(source_id)
-    if not queries:
-        raise ValueError("No queries ready yet")
-    else:
-        logger.debug("Queries: %s", queries)
-        return render_template('queries.html',
-                               queries=queries,
-                               source_id=source_id)
+    logger.debug("Queries: %s", queries)
+    return render_template('queries.html',
+                            queries=queries,
+                            source_id=source_id)
 
 
 @app.route("/<source_id>/<method>/<query_id>")
 def send(source_id, method, query_id):
     queries = fetch_queries(source_id)
-    if not queries:
-        raise ValueError("No queries ready yet")
-    else:
-        logger.debug("Queries: %s", queries)
-        for query in queries:
-            logger.debug("Check query %s", query)
-            if query["id"] == query_id:
-                if method == "accept":
-                    logger.info("Accepting %s", query_id)
+    logger.debug("Queries: %s", queries)
+    for query in queries:
+        logger.debug("Check query %s", query)
+        if query["id"] == query_id:
+            if method == "accept":
+                logger.info("Accepting %s", query_id)
 
-                    # Find field names for this source
-                    fieldnames = query['fields'][source_id]
+                # Find field names for this source
+                fieldnames = query['fields'][source_id]
 
-                    # Use signed query as salt for id hashing
-                    salt_for_id_hashing = query['signed']
-                    data = get_local_data(fieldnames,
-                                          source_id,
-                                          salt_for_id_hashing)
+                # Use signed query as salt for id hashing
+                salt_for_id_hashing = query['signed']
+                data = get_local_data(fieldnames,
+                                        source_id,
+                                        salt_for_id_hashing)
 
-                    # Copy id and total sources to data sent to merge server
-                    data['query_id'] = query['id']
-                    data['sources'] = query['sources']
+                # Copy id and total sources to data sent to merge server
+                data['query_id'] = query['id']
+                data['sources'] = query['sources']
 
-                    # Send data
-                    send_data(data, "sigurdga@edge",
-                              config['merge_server_port'])
-                else:
-                    logger.warning("Rejecting %s", query_id)
-                    data = {'source_id': source_id}
-                    data['query_id'] = query['id']
-                    data['sources'] = query['sources']
-                    send_data(data, "sigurdga@edge",
-                              config['merge_server_port'])
-                logger.debug("Will now redirect")
-                return redirect("/reg/"+source_id)
+                # Send data
+                send_data(data, "sigurdga@edge",
+                            config['merge_server_port'])
+            else:
+                logger.warning("Rejecting %s", query_id)
+                data = {'source_id': source_id}
+                data['query_id'] = query['id']
+                data['sources'] = query['sources']
+                send_data(data, "sigurdga@edge",
+                            config['merge_server_port'])
+            logger.debug("Will now redirect")
+            return redirect("/reg/"+source_id)
 
 
 if __name__ == '__main__':
