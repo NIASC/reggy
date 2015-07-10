@@ -117,7 +117,9 @@ def fetch_queries(source_id):
                     logger.info("Is ready: %s", query["id"])
                     all_signed_queries.append(query)
                 else:
-                    logger.info("I have signed this, but not everybody else: %s", query["id"])
+                    logger.info(
+                        "I have signed this, but not everybody else: %s",
+                        query["id"])
 
             else:
                 original = query['signed']
@@ -152,8 +154,8 @@ def queries(source_id):
     queries = fetch_queries(source_id)
     logger.debug("Queries: %s", queries)
     return render_template('queries.html',
-                            queries=queries,
-                            source_id=source_id)
+                           queries=queries,
+                           source_id=source_id)
 
 
 @app.route("/<source_id>/<method>/<query_id>")
@@ -172,8 +174,8 @@ def send(source_id, method, query_id):
                 # Use signed query as salt for id hashing
                 salt_for_id_hashing = query['signed']
                 data = get_local_data(fieldnames,
-                                        source_id,
-                                        salt_for_id_hashing)
+                                      source_id,
+                                      salt_for_id_hashing)
 
                 # Copy id and total sources to data sent to merge server
                 data['query_id'] = query['id']
@@ -181,14 +183,14 @@ def send(source_id, method, query_id):
 
                 # Send data
                 send_data(data, "sigurdga@edge",
-                            config['merge_server_port'])
+                          config['merge_server_port'])
             else:
                 logger.warning("Rejecting %s", query_id)
                 data = {'source_id': source_id}
                 data['query_id'] = query['id']
                 data['sources'] = query['sources']
                 send_data(data, "sigurdga@edge",
-                            config['merge_server_port'])
+                          config['merge_server_port'])
             logger.debug("Will now redirect")
             return redirect("/reg/"+source_id)
 
