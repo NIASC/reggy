@@ -5,19 +5,25 @@ This will mimic a health registry, not using correct data, but something
 similar.
 """
 
+import sys
 import csv
 import base64
 import socket
 import logging
 import scrypt
+import json
 
 from lib import get_config, verify, sign, serialize, serialize_and_encrypt
 from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_encode
 from lib import serialize_encrypt_and_send
 
-from flask import Flask, render_template, redirect
 
-app = Flask(__name__)
+class VerificationError(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -119,6 +125,10 @@ def fetch_queries(source_id):
         decrypted_data = decode_decrypt_and_deserialize(received)
 
         logger.debug("decrypted_data %s", decrypted_data)
+        if not decrypted_data:
+            logger.warning("no data received")
+            raise ValueError("No data received")
+
         queries = decrypted_data['queries']
         logger.debug("queries       %s", queries)
         for query in queries:
@@ -138,7 +148,7 @@ def fetch_queries(source_id):
                 # verify
                 verified = verify(original)
                 if not verified:
-                    raise ValueError(
+                    raise VerificationError(
                         "Signature could not be verified for query %s",
                         query)
 
@@ -156,21 +166,21 @@ def fetch_queries(source_id):
     return all_signed_queries
 
 
-@app.route("/")
-def index():
-    return render_template('registries.html')
-
-
-@app.route("/reg/<source_id>")
 def queries(source_id):
-    queries = fetch_queries(source_id)
+    try:
+        queries = fetch_queries(source_id)
+    except ValueError as err:
+        print("No queries for {}:".format(source_id), err)
+        return
+
     logger.debug("Queries: %s", queries)
-    return render_template('queries.html',
-                           queries=queries,
-                           source_id=source_id)
+    template = "{id!s:32}"
+    print("Queries for {}\n--------------------".format(source_id))
+    for query in queries:
+        print(template.format(**query))
+        print(json.dumps(query.get('fields'), sort_keys=True, indent=4))
 
 
-@app.route("/<source_id>/<method>/<query_id>")
 def send(source_id, method, query_id):
     queries = fetch_queries(source_id)
     logger.debug("Queries: %s", queries)
@@ -196,6 +206,7 @@ def send(source_id, method, query_id):
                 # Send data
                 serialize_encrypt_and_send(data, "sigurdga@edge",
                                            config['merge_server_port'])
+                return True
             else:
                 logger.warning("Rejecting %s", query_id)
                 data = {'source_id': source_id}
@@ -203,9 +214,36 @@ def send(source_id, method, query_id):
                 data['sources'] = query['sources']
                 serialize_encrypt_and_send(data, "sigurdga@edge",
                                            config['merge_server_port'])
-            logger.debug("Will now redirect")
-            return redirect("/reg/"+source_id)
+                return True
 
+            return
 
 if __name__ == '__main__':
-    app.run(port=5005, debug=True)
+
+    # Parameter handling is not very intelligent
+    # No parameter asks you to add a registry
+    # Only a registry will list all queries for that registry
+    # If second parameter is something else than accept or reject, give error
+    # If there is no third parameter (query id), accept or reject all (not
+    # implemented)
+
+    if len(sys.argv) > 2:
+        logger.error("First parameter has to be a registry: hunt cancer")
+
+    elif len(sys.argv) == 2:
+        # list queries for registry
+        queries(sys.argv[1])
+
+    elif sys.argv[2] not in ('accept', 'reject'):
+        logger.error(
+            "You need to accept or reject a specific query or all queries")
+
+    else:
+        if sys.argv[3]:
+            status = send(sys.argv[1], sys.argv[2], sys.argv[3])
+            if not status:
+                logger.error("Query ID %s did not match any queries",
+                             sys.argv[3])
+        else:
+            # TODO: accept or reject all
+            pass
