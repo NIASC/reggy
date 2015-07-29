@@ -58,7 +58,8 @@ def generate_encrypted_fieldnames(fieldnames, source_id):
     """
 
     return {
-        fn: serialize_and_encrypt(source_id + ":" + fn, "sigurdga@edge").decode("utf-8")
+        fn: serialize_and_encrypt(source_id + ":" + fn,
+                                  "sigurdga@edge").decode("utf-8")
         for fn in fieldnames
     }
 
@@ -73,8 +74,8 @@ def hash_id(original_id, salt):
 
 def get_local_data(fieldnames, source_id, salt_for_id_hashing):
     """
-    Read and encrypt local data. Returned in a dictionary using anonymized ids
-    as keys.
+    Read and encrypt local data. Returned in a dictionary using anonymized
+    ids as keys.
 
     This will be replaced with specific readers at actual registries.
     """
