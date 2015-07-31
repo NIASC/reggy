@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import norm
 
+# Cancer is over-reported. Adjust to something closer to real values.
+
 # source: http://www.cancerresearchuk.org/health-professional/cancer-statistics
 
 print "id,gender,born,height,weight,genotyped,training,smoking,drinking,bmi,lc,tc,bc,pc,bwc"
