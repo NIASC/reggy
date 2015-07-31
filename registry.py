@@ -228,7 +228,7 @@ if __name__ == '__main__':
     # If there is no third parameter (query id), accept or reject all (not
     # implemented)
 
-    if len(sys.argv) > 2:
+    if len(sys.argv) < 2:
         logger.error("First parameter has to be a registry: hunt cancer")
 
     elif len(sys.argv) == 2:
