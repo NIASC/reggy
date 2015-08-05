@@ -5,13 +5,13 @@ This will mimic a health registry, not using correct data, but something
 similar.
 """
 
-import sys
 import csv
 import base64
 import socket
 import logging
 import scrypt
 import json
+import argparse
 
 from lib import get_config, verify, sign, serialize, serialize_and_encrypt
 from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_encode
@@ -205,46 +205,49 @@ def send(source_id, method, query_id):
                 data['sources'] = query['sources']
 
                 # Send data
-                serialize_encrypt_and_send(data, "sigurdga@edge",
-                                           config['merge_server_port'])
+                serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,
+                                           config.MERGE_SERVER_PORT)
                 return True
             else:
                 logger.warning("Rejecting %s", query_id)
                 data = {'source_id': source_id}
                 data['query_id'] = query['id']
                 data['sources'] = query['sources']
-                serialize_encrypt_and_send(data, "sigurdga@edge",
-                                           config['merge_server_port'])
+                serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,
+                                           config.MERGE_SERVER_PORT)
                 return True
 
             return
 
+
 if __name__ == '__main__':
 
-    # Parameter handling is not very intelligent
-    # No parameter asks you to add a registry
-    # Only a registry will list all queries for that registry
-    # If second parameter is something else than accept or reject, give error
-    # If there is no third parameter (query id), accept or reject all (not
-    # implemented)
+    parser = argparse.ArgumentParser(
+        description="Registry controller script",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('registry', choices=("hunt", "cancer", "death"))
+    parser.add_argument('--accept', type=str,
+                        help="Accept one query by query ID")
+    parser.add_argument('--debug', nargs="?", const=True, default=False,
+                        help="Debug level for logging")
+    args = parser.parse_args()
 
-    if len(sys.argv) < 2:
-        logger.error("First parameter has to be a registry: hunt cancer")
+    level = logging.WARNING
+    if args.debug:
+        level = logging.DEBUG
 
-    elif len(sys.argv) == 2:
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    )
+    logging.getLogger("gnupg").setLevel(logging.INFO)
+    logger = logging.getLogger('registry')
+
+    if not args.accept:  # or not args.reject
         # list queries for registry
-        queries(sys.argv[1])
-
-    elif sys.argv[2] not in ('accept', 'reject'):
-        logger.error(
-            "You need to accept or reject a specific query or all queries")
-
+        queries(args.registry)
     else:
-        if sys.argv[3]:
-            status = send(sys.argv[1], sys.argv[2], sys.argv[3])
-            if not status:
-                logger.error("Query ID %s did not match any queries",
-                             sys.argv[3])
-        else:
-            # TODO: accept or reject all
-            pass
+        # accept the query
+        status = send(args.registry, "accept", args.accept)
+        if not status:
+            logger.error("Query ID %s did not match any queries", args.accept)
