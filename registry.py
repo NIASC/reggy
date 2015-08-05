@@ -68,7 +68,7 @@ def hash_id(original_id, salt):
     hashed_id = scrypt.hash(original_id, salt)
     logger.debug("hashed %s to %s using salt %s", original_id, hashed_id, salt)
     encoded_id = base64.b64encode(hashed_id)
-    logger.debug("hashed_id encoded to", encoded_id)
+    logger.debug("hashed_id encoded to %s", encoded_id)
     return encoded_id.decode("utf-8")
 
 
