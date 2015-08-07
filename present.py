@@ -6,7 +6,8 @@ This will simulate sending email results.
 
 import logging
 import socketserver
-from lib import get_config
+
+import config
 from lib import decrypt_and_deserialize, decode_decrypt_and_deserialize
 
 logging.basicConfig(
@@ -15,8 +16,6 @@ logging.basicConfig(
 )
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('present')
-
-config = get_config()
 
 
 class PresentationHandler(socketserver.StreamRequestHandler):
@@ -36,7 +35,7 @@ class PresentationHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 50040
-
-    server = socketserver.TCPServer((HOST, PORT), PresentationHandler)
+    server = socketserver.TCPServer((config.PRESENTATION_SERVER_HOST,
+                                     config.PRESENTATION_SERVER_PORT),
+                                    PresentationHandler)
     server.serve_forever()

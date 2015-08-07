@@ -4,10 +4,11 @@
 This will simulate sending email results.
 """
 
-import json
 import logging
 import socketserver
-from lib import get_config, decrypt_and_deserialize
+
+import config
+from lib import decrypt_and_deserialize
 from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_send
 
 logging.basicConfig(
@@ -16,8 +17,6 @@ logging.basicConfig(
 )
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('summary')
-
-config = get_config()
 
 
 def create_summary(data):
@@ -58,8 +57,8 @@ class SummaryHandler(socketserver.StreamRequestHandler):
         # summarize
         summary = create_summary(results)
         serialize_encrypt_and_send(summary,
-                                   "sigurdga@edge",
-                                   config['presentation_server_port'])
+                                   config.PRESENTATION_SERVER_RECIPIENT,
+                                   config.PRESENTATION_SERVER_PORT)
         query_id = data["query_id"]
         logger.debug("results %s decrypted: %s", query_id, results)
         response = ""
@@ -68,7 +67,7 @@ class SummaryHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 50030
-
-    server = socketserver.TCPServer((HOST, PORT), SummaryHandler)
+    server = socketserver.TCPServer((config.SUMMARY_SERVER_HOST,
+                                     config.SUMMARY_SERVER_PORT),
+                                    SummaryHandler)
     server.serve_forever()

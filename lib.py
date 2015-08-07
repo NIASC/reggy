@@ -6,29 +6,10 @@ import base64
 import socket
 import logging
 
+import config
+
 logger = logging.getLogger(
     os.path.splitext(os.path.basename(sys.argv[0]))[0] + "-" + __name__)
-
-
-def get_config():
-    configfile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              'config.json')
-
-    try:
-        config = json.load(open(configfile))
-    except IOError:
-        logger.warning('Config file not found, using defaults')
-        config = {
-            'query_server_host': 'localhost',
-            'query_server_port': 50010,
-            'merge_server_host': 'localhost',
-            'merge_server_port': 50020,
-            'summary_server_host': 'localhost',
-            'summary_server_port': 50030,
-            'presentation_server_host': 'localhost',
-            'presentation_server_port': 50040
-        }
-    return config
 
 
 def encrypt(data, recipient):
@@ -36,27 +17,11 @@ def encrypt(data, recipient):
     Reads recipient address from config and encrypts data for recipient
     """
 
-    # lots of config reading
-    # get encryption config from config file
-    # keydir could be null in the file to use the default key folder
-    config = get_config()
-    encryption_config = config.get('encryption', {})
-    keydir = encryption_config.get('keydir', None)
-    if not keydir:
-        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "keys")
-
-    recipient_email = encryption_config.get('recipient', recipient)
-    if not recipient_email:
-        err = "Recipient %s not defined in config.json" % recipient
-        logger.error(err)
-        raise err
-
-    gpg = gnupg.GPG(gnupghome=keydir)
+    gpg = gnupg.GPG(gnupghome=config.KEYDIR)
     gpg.encoding = 'utf-8'
 
     logger.debug("data      %s", data)
-    encrypted_data = gpg.encrypt(data, [recipient_email]).data
+    encrypted_data = gpg.encrypt(data, [recipient]).data
     logger.debug("encrypted %s", encrypted_data)
     return encrypted_data
 
@@ -66,14 +31,7 @@ def decrypt(encrypted_data):
     Decrypts using GPG and parses json data structure.
     """
 
-    config = get_config()
-    encryption_config = config.get('encryption', {})
-    keydir = encryption_config.get('keydir', None)
-    if not keydir:
-        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "keys")
-
-    gpg = gnupg.GPG(gnupghome=keydir)
+    gpg = gnupg.GPG(gnupghome=config.KEYDIR)
     gpg.encoding = 'utf-8'
 
     logger.debug("encrypted %s", encrypted_data)
@@ -88,14 +46,7 @@ def verify(signed_data):
     Decrypts using GPG and parses json data structure.
     """
 
-    config = get_config()
-    encryption_config = config.get('encryption', {})
-    keydir = encryption_config.get('keydir', None)
-    if not keydir:
-        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "keys")
-
-    gpg = gnupg.GPG(gnupghome=keydir)
+    gpg = gnupg.GPG(gnupghome=config.KEYDIR)
     gpg.encoding = 'utf-8'
 
     return gpg.verify(signed_data)
@@ -106,14 +57,7 @@ def sign(data):
     Decrypts using GPG and parses json data structure.
     """
 
-    config = get_config()
-    encryption_config = config.get('encryption', {})
-    keydir = encryption_config.get('keydir', None)
-    if not keydir:
-        keydir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              "keys")
-
-    gpg = gnupg.GPG(gnupghome=keydir)
+    gpg = gnupg.GPG(gnupghome=config.KEYDIR)
     gpg.encoding = 'utf-8'
 
     return gpg.sign(data)

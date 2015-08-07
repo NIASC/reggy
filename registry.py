@@ -13,7 +13,8 @@ import scrypt
 import json
 import argparse
 
-from lib import get_config, verify, sign, serialize, serialize_and_encrypt
+import config
+from lib import verify, sign, serialize, serialize_and_encrypt
 from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_encode
 from lib import serialize_encrypt_and_send
 
@@ -24,15 +25,6 @@ class VerificationError(Exception):
 
     def __str__(self):
         return repr(self.value)
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-)
-logging.getLogger("gnupg").setLevel(logging.INFO)
-logger = logging.getLogger('registry')
-
-config = get_config()
 
 
 def find_indexes_from_fieldnames(headers, fieldnames):
@@ -58,8 +50,10 @@ def generate_encrypted_fieldnames(fieldnames, source_id):
     """
 
     return {
-        fn: serialize_and_encrypt(source_id + ":" + fn,
-                                  "sigurdga@edge").decode("utf-8")
+        fn: serialize_and_encrypt(
+            source_id + ":" + fn,
+            config.PRESENTATION_SERVER_RECIPIENT
+        ).decode("utf-8")
         for fn in fieldnames
     }
 
@@ -96,7 +90,8 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
                 key = encrypted_fieldnames[fieldname]
                 value = line[field]
                 dataline[key] = value
-            dataline = serialize_and_encrypt(dataline, "sigurdga@edge")
+            dataline = serialize_and_encrypt(dataline,
+                                             config.SUMMARY_SERVER_RECIPIENT)
             dataline = dataline.decode("utf-8")
 
             data[hashed_id] = dataline
@@ -105,7 +100,6 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
 
 def fetch_queries(source_id):
     logger.debug("fetching queries")
-    HOST, PORT = "localhost", 50010
     data = serialize({"source_id": source_id})
 
     # Create a socket (SOCK_STREAM means a TCP socket)
@@ -116,7 +110,7 @@ def fetch_queries(source_id):
 
     try:
         # Connect to server and send data
-        sock.connect((HOST, PORT))
+        sock.connect((config.QUERY_SERVER_HOST, config.QUERY_SERVER_PORT))
         logger.debug("sending       %s", data)
         sock.sendall(bytes(data, "utf-8") + bytes("\n", "utf-8"))
 
@@ -158,7 +152,7 @@ def fetch_queries(source_id):
                 this_signed_queries[query['id']] = signed.data.decode("utf-8")
         logger.debug("signed queries %s", this_signed_queries)
         encrypted = serialize_encrypt_and_encode(this_signed_queries,
-                                                 "sigurdga@edge")
+                                                 config.QUERY_SERVER_RECIPIENT)
         sock.sendall(encrypted + bytes("\n", "utf-8"))
 
     finally:

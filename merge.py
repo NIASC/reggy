@@ -17,7 +17,7 @@ hash of sources per query_id, for which we are waiting for data.
 import logging
 import socketserver
 
-from lib import get_config
+import config
 from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_send
 
 logging.basicConfig(
@@ -29,8 +29,6 @@ logger = logging.getLogger('merge')
 
 received = {}
 query_sources = {}
-
-config = get_config()
 
 
 def merge(data):
@@ -107,8 +105,8 @@ class MergeHandler(socketserver.StreamRequestHandler):
             del query_sources[query_id]
             data = {"query_id": query_id, "data": merged}
             serialize_encrypt_and_send(data,
-                                       "sigurdga@edge",
-                                       config['summary_server_port'])
+                                       config.SUMMARY_SERVER_RECIPIENT,
+                                       config.SUMMARY_SERVER_PORT)
 
         logger.debug("Sources left per query: %s", query_sources)
 
@@ -117,7 +115,7 @@ class MergeHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == '__main__':
-    HOST, PORT = "localhost", 50020
-
-    server = socketserver.TCPServer((HOST, PORT), MergeHandler)
+    server = socketserver.TCPServer((config.MERGE_SERVER_HOST,
+                                     config.MERGE_SERVER_PORT),
+                                    MergeHandler)
     server.serve_forever()

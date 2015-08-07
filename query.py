@@ -19,7 +19,8 @@ import logging
 import socketserver
 from urllib import request
 
-from lib import get_config, sign, verify
+import config
+from lib import sign, verify
 from lib import serialize_encrypt_and_encode, decode_decrypt_and_deserialize
 
 logging.basicConfig(
@@ -28,8 +29,6 @@ logging.basicConfig(
 )
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('query')
-
-config = get_config()
 
 cached_queries = {}
 
@@ -67,10 +66,15 @@ class QueryHandler(socketserver.StreamRequestHandler):
 
         # TODO: Create good filter
         # TODO: Source ID should be replaced by mapping to IP/PORT
-        if 'source_id' in data and data['source_id'] in ['hunt', 'cancer']:
+        valid_sources = ['hunt', 'cancer', 'death']
+        if 'source_id' in data and data['source_id'] in valid_sources:
             queries = fetch_queries(data['source_id'])
 
-            encrypted = serialize_encrypt_and_encode(queries, "sigurdga@edge")
+            if not config.RECIPIENTS[data['source_id']]:
+                raise Exception("Could not find encryption config for %s", data['source_id'])
+
+            encrypted = serialize_encrypt_and_encode(
+                queries, config.RECIPIENTS[data['source_id']])
 
             logger.info("sending     %s", encrypted)
             self.request.sendall(encrypted + bytes("\n", "utf-8"))
@@ -98,7 +102,7 @@ class QueryHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 50010
-
-    server = socketserver.TCPServer((HOST, PORT), QueryHandler)
+    server = socketserver.TCPServer((config.QUERY_SERVER_HOST,
+                                     config.QUERY_SERVER_PORT),
+                                    QueryHandler)
     server.serve_forever()
