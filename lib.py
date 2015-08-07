@@ -23,6 +23,8 @@ def encrypt(data, recipient):
     logger.debug("data      %s", data)
     encrypted_data = gpg.encrypt(data, [recipient]).data
     logger.debug("encrypted %s", encrypted_data)
+    if not encrypted_data:
+        logger.error("Encrypted result is empty for %s", recipient)
     return encrypted_data
 
 
