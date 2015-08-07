@@ -74,6 +74,11 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
     This will be replaced with specific readers at actual registries.
     """
 
+    # We will send metadata about categorization++ to be unpacked in
+    # presentation step.
+    # TODO: Encrypt me meaning
+    metadata = config.FIELD_INTERVALS
+
     with open(source_id + '.csv', 'r') as f:
         reader = csv.reader(f)
         tabular_data = [row for row in reader]
@@ -88,14 +93,20 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
             for field in indexes_to_use:
                 fieldname = headers[field]
                 key = encrypted_fieldnames[fieldname]
-                value = line[field]
+
+                # some fields have restrictions saying to categorize values
+                if fieldname in config.FIELD_INTERVALS.keys():
+                    value = line[field] / config.FIELD_INTERVALS[fieldname]
+                else:
+                    value = line[field]
+
                 dataline[key] = value
             dataline = serialize_and_encrypt(dataline,
                                              config.SUMMARY_SERVER_RECIPIENT)
             dataline = dataline.decode("utf-8")
 
             data[hashed_id] = dataline
-        return {'data': data, 'source_id': source_id}
+        return {'data': data, 'source_id': source_id}, metadata
 
 
 def fetch_queries(source_id):
@@ -190,13 +201,15 @@ def send(source_id, method, query_id):
 
                 # Use signed query as salt for id hashing
                 salt_for_id_hashing = query['signed']
-                data = get_local_data(fieldnames,
-                                      source_id,
-                                      salt_for_id_hashing)
+                data, metadata = get_local_data(fieldnames,
+                                                source_id,
+                                                salt_for_id_hashing)
 
                 # Copy id and total sources to data sent to merge server
                 data['query_id'] = query['id']
                 data['sources'] = query['sources']
+                data['metadata'] = serialize_and_encrypt(
+                    metadata, config.PRESENTATION_SERVER_RECIPIENT)
 
                 # Send data
                 serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,

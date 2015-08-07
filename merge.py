@@ -38,15 +38,15 @@ def merge(data):
     registries = list(data)
     logger.debug("Merging data from sources: %s", ", ".join(registries))
     if registries:  # We have something to do
-        for hashed_id in data[registries[0]]:
+        for hashed_id in data[registries[0]]['data']:
             in_all = True
             merged_data = {}
             # doing all as this is faster than looping twice
             for registry in registries:
-                if hashed_id not in data[registry]:
+                if hashed_id not in data[registry]['data']:
                     in_all = False
                     break
-                merged_data[registry] = data[registry][hashed_id]
+                merged_data[registry] = data[registry]['data'][hashed_id]
             if in_all:
                 total.append(list(merged_data.values()))
     return total
@@ -79,10 +79,14 @@ class MergeHandler(socketserver.StreamRequestHandler):
 
         if query_id not in received:
             received[query_id] = {}
+        if source_id not in received[query_id]:
+            received[query_id][source_id] = {}
 
         # if accepted by registry make data ready to merge
         if 'data' in data:
-            received[query_id][source_id] = data['data']
+            received[query_id][source_id]['data'] = data['data']
+        if 'metadata' in data:
+            received[query_id][source_id]['metadata'] = data['metadata']
 
         logger.debug("Will remove %s from remaining sources for query %s",
                      source_id, query_id)

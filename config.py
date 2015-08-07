@@ -22,4 +22,10 @@ RECIPIENTS = {
     'death': 'sigurdga@edge'
 }
 
+FIELD_INTERVALS = {
+    'born': 5,
+    'height': 2,
+    'weight': 5
+}
+
 # TODO: Override these when finding a file containing local config
