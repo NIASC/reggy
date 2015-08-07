@@ -11,10 +11,6 @@ import config
 from lib import decrypt_and_deserialize
 from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_send
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-)
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('summary')
 
@@ -67,6 +63,10 @@ class SummaryHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    )
     server = socketserver.TCPServer((config.SUMMARY_SERVER_HOST,
                                      config.SUMMARY_SERVER_PORT),
                                     SummaryHandler)

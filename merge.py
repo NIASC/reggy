@@ -20,10 +20,6 @@ import socketserver
 import config
 from lib import decode_decrypt_and_deserialize, serialize_encrypt_and_send
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-)
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('merge')
 
@@ -115,6 +111,10 @@ class MergeHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    )
     server = socketserver.TCPServer((config.MERGE_SERVER_HOST,
                                      config.MERGE_SERVER_PORT),
                                     MergeHandler)

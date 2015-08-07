@@ -23,10 +23,6 @@ import config
 from lib import sign, verify
 from lib import serialize_encrypt_and_encode, decode_decrypt_and_deserialize
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-)
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('query')
 
@@ -102,6 +98,10 @@ class QueryHandler(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
+    )
     server = socketserver.TCPServer((config.QUERY_SERVER_HOST,
                                      config.QUERY_SERVER_PORT),
                                     QueryHandler)
