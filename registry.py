@@ -237,7 +237,7 @@ if __name__ == '__main__':
     parser.add_argument('--accept', type=str,
                         help="Accept one query by query ID")
     parser.add_argument('--debug', nargs="?", const=True, default=False,
-                        help="Debug level for logging")
+                        help="Debug logging")
     args = parser.parse_args()
 
     level = logging.WARNING

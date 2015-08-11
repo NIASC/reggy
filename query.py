@@ -16,6 +16,7 @@ return. During that time, signing is blocked for other registries.
 
 import json
 import logging
+import argparse
 import socketserver
 from urllib import request
 
@@ -59,26 +60,34 @@ class QueryHandler(socketserver.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
         data = json.loads(self.data.decode("utf-8"))
+        logger.info("%s gets queries", data['source_id'])
 
         # TODO: Create good filter
         # TODO: Source ID should be replaced by mapping to IP/PORT
         valid_sources = ['hunt', 'cancer', 'death']
         if 'source_id' in data and data['source_id'] in valid_sources:
+            logger.info("asking web server for queries")
             queries = fetch_queries(data['source_id'])
+            logger.info("got queries from web server")
 
             if not config.RECIPIENTS[data['source_id']]:
-                raise Exception("Could not find encryption config for %s", data['source_id'])
+                raise Exception("Could not find encryption config for %s",
+                                data['source_id'])
 
             encrypted = serialize_encrypt_and_encode(
                 queries, config.RECIPIENTS[data['source_id']])
 
-            logger.info("sending     %s", encrypted)
+            logger.debug("sending     %s", encrypted)
+            logger.info("responding to %s with all queries - for signing",
+                        data['source_id'])
             self.request.sendall(encrypted + bytes("\n", "utf-8"))
 
             received = self.rfile.readline().strip()
             logger.debug("received  %s", received)
 
             signed_queries = decode_decrypt_and_deserialize(received)
+            logger.info("got back %s signed queries from %s",
+                        len(signed_queries), data['source_id'])
 
             logger.debug("decrypted_data %s", signed_queries)
             # reset timeout lock
@@ -95,11 +104,23 @@ class QueryHandler(socketserver.StreamRequestHandler):
                 cached_queries[query_id]['signed'] = query
 
             logger.debug(cached_queries)
+            logger.info("%s got %s queries",
+                        data['source_id'], len(cached_queries))
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Query server")
+    parser.add_argument('--debug', nargs='?', const=True, default=False,
+                        help="Debug logging")
+    args = parser.parse_args()
+
+    level = logging.INFO
+    if args.debug:
+        level = logging.DEBUG
+
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=level,
         format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
     )
     server = socketserver.TCPServer((config.QUERY_SERVER_HOST,

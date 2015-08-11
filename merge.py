@@ -15,6 +15,7 @@ hash of sources per query_id, for which we are waiting for data.
 # than is provided in ``received``.
 
 import logging
+import argparse
 import socketserver
 
 import config
@@ -62,6 +63,8 @@ class MergeHandler(socketserver.StreamRequestHandler):
         source_id = data['source_id']
         sources = data['sources']
 
+        logger.info("got data from %s for query %s", source_id, query_id)
+
         # first dataset using a query_id will set the acceptable sources
         if query_id not in query_sources:
             query_sources[query_id] = sources
@@ -99,6 +102,7 @@ class MergeHandler(socketserver.StreamRequestHandler):
         # should then be merged, and temporary storage should be cleaned. The
         # last step is to send the merged data to the summary server.
         if not query_sources[query_id]:
+            logger.info("will merge data for %s", query_id)
             merged = merge(received[query_id])
             logger.debug("Merged %s", data)
             logger.debug("Merged to %s", merged)
@@ -107,19 +111,31 @@ class MergeHandler(socketserver.StreamRequestHandler):
             del received[query_id]
             del metadata[query_id]
             del query_sources[query_id]
+            logger.info("data merged for %s", query_id)
             serialize_encrypt_and_send(results,
                                        config.SUMMARY_SERVER_RECIPIENT,
                                        config.SUMMARY_SERVER_PORT)
 
         logger.debug("Sources left per query: %s", query_sources)
+        logger.info("query %s finished", query_id)
 
         response = ""
         self.request.sendall(bytes(response, "utf-8"))
 
 
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description="Merge server")
+    parser.add_argument('--debug', nargs='?', const=True, default=False,
+                        help="Debug logging")
+    args = parser.parse_args()
+
+    level = logging.INFO
+    if args.debug:
+        level = logging.DEBUG
+
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=level,
         format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
     )
     server = socketserver.TCPServer((config.MERGE_SERVER_HOST,

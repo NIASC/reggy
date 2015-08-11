@@ -8,12 +8,9 @@ import logging
 import socketserver
 
 import config
+import argparse
 from lib import decrypt_and_deserialize, decode_decrypt_and_deserialize
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
-)
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('present')
 
@@ -22,6 +19,8 @@ class PresentationHandler(socketserver.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
         data = decode_decrypt_and_deserialize(self.data)
+
+        logging.info("got data for query %s", data["query_id"])
 
         # unwrap metadata organized per source
         metadata = {k: decrypt_and_deserialize(m)
@@ -41,15 +40,26 @@ class PresentationHandler(socketserver.StreamRequestHandler):
                 summary = categorized_summary
             decrypted_data[fieldname] = summary
 
-        logger.info("decrypted summary: %s", decrypted_data)
+        # TODO: Logging is not the final delivery
+        logger.info("decrypted summary for %s: %s",
+                    data["query_id"], decrypted_data)
 
         response = ""
         self.request.sendall(bytes(response, "utf-8"))
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Result presentation server")
+    parser.add_argument('--debug', nargs='?', const=True, default=False,
+                        help="Debug logging")
+    args = parser.parse_args()
+
+    level = logging.INFO
+    if args.debug:
+        level = logging.DEBUG
+
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=level,
         format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
     )
     server = socketserver.TCPServer((config.PRESENTATION_SERVER_HOST,

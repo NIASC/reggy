@@ -80,12 +80,12 @@ def send_data(data, encrypt_for, port, host="localhost"):
         # Connect to server and send data
         sock.connect((host, port))
         sock.sendall(encoded_data + bytes("\n", "utf-8"))
-        logger.info("sending    %s", encoded_data)
+        logger.debug("sending    %s", encoded_data)
 
         # Receive data from the server and shut down
         received = sock.makefile().readline()
 
-        logger.info("received   %s", received)
+        logger.debug("received   %s", received)
     finally:
         sock.close()
 

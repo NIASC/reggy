@@ -5,6 +5,7 @@ This will simulate sending email results.
 """
 
 import logging
+import argparse
 import socketserver
 
 import config
@@ -44,6 +45,8 @@ class SummaryHandler(socketserver.StreamRequestHandler):
         metadata = data["metadata"]
         query_id = data["query_id"]
 
+        logger.info("got data for query %s", query_id)
+
         results = []
         # decrypt
         for dataline in data["data"]:
@@ -61,12 +64,24 @@ class SummaryHandler(socketserver.StreamRequestHandler):
         logger.debug("results %s decrypted: %s", query_id, results)
         response = ""
         self.request.sendall(bytes(response, "utf-8"))
-        logger.info("summary: %s", summary)
+        logger.debug("summary: %s", summary)
+        logger.info("summary for %s passed on to presentation server",
+                    query_id)
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Summary server")
+    parser.add_argument('--debug', nargs='?', const=True, default=False,
+                        help="Debug logging")
+    args = parser.parse_args()
+
+    level = logging.INFO
+    if args.debug:
+        level = logging.DEBUG
+
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=level,
         format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s'
     )
     server = socketserver.TCPServer((config.SUMMARY_SERVER_HOST,
