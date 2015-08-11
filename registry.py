@@ -96,7 +96,8 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
 
                 # some fields have restrictions saying to categorize values
                 if fieldname in config.FIELD_INTERVALS.keys():
-                    value = line[field] / config.FIELD_INTERVALS[fieldname]
+                    intvalue = int(line[field])
+                    value = intvalue // config.FIELD_INTERVALS[fieldname]
                 else:
                     value = line[field]
 
@@ -209,7 +210,7 @@ def send(source_id, method, query_id):
                 data['query_id'] = query['id']
                 data['sources'] = query['sources']
                 data['metadata'] = serialize_and_encrypt(
-                    metadata, config.PRESENTATION_SERVER_RECIPIENT)
+                    metadata, config.PRESENTATION_SERVER_RECIPIENT).decode("utf-8")
 
                 # Send data
                 serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,

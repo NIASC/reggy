@@ -23,10 +23,23 @@ class PresentationHandler(socketserver.StreamRequestHandler):
         self.data = self.rfile.readline().strip()
         data = decode_decrypt_and_deserialize(self.data)
 
-        decrypted_data = {
-            decrypt_and_deserialize(encrypted_key): summary
-            for encrypted_key, summary in data.items()
-        }
+        # unwrap metadata organized per source
+        metadata = {k: decrypt_and_deserialize(m)
+                    for k, m in data["metadata"].items()}
+        unwrapped_metadata = {}
+        for source in metadata:
+            for key in metadata[source]:
+                unwrapped_metadata[source + ":" + key] = metadata[source][key]
+
+        decrypted_data = {}
+        for encrypted_fieldname, categorized_summary in data["data"].items():
+            fieldname = decrypt_and_deserialize(encrypted_fieldname)
+            if fieldname in unwrapped_metadata:  # replace interval categories
+                summary = {int(key) * unwrapped_metadata[fieldname]: value
+                           for key, value in categorized_summary.items()}
+            else:
+                summary = categorized_summary
+            decrypted_data[fieldname] = summary
 
         logger.info("decrypted summary: %s", decrypted_data)
 

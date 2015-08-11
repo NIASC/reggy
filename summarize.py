@@ -41,6 +41,8 @@ class SummaryHandler(socketserver.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
         data = decode_decrypt_and_deserialize(self.data)
+        metadata = data["metadata"]
+        query_id = data["query_id"]
 
         results = []
         # decrypt
@@ -52,10 +54,10 @@ class SummaryHandler(socketserver.StreamRequestHandler):
 
         # summarize
         summary = create_summary(results)
-        serialize_encrypt_and_send(summary,
+        results = {"data": summary, "query_id": query_id, "metadata": metadata}
+        serialize_encrypt_and_send(results,
                                    config.PRESENTATION_SERVER_RECIPIENT,
                                    config.PRESENTATION_SERVER_PORT)
-        query_id = data["query_id"]
         logger.debug("results %s decrypted: %s", query_id, results)
         response = ""
         self.request.sendall(bytes(response, "utf-8"))

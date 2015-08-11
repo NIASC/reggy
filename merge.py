@@ -24,6 +24,7 @@ logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('merge')
 
 received = {}
+metadata = {}
 query_sources = {}
 
 
@@ -38,15 +39,15 @@ def merge(data):
     registries = list(data)
     logger.debug("Merging data from sources: %s", ", ".join(registries))
     if registries:  # We have something to do
-        for hashed_id in data[registries[0]]['data']:
+        for hashed_id in data[registries[0]]:
             in_all = True
             merged_data = {}
             # doing all as this is faster than looping twice
             for registry in registries:
-                if hashed_id not in data[registry]['data']:
+                if hashed_id not in data[registry]:
                     in_all = False
                     break
-                merged_data[registry] = data[registry]['data'][hashed_id]
+                merged_data[registry] = data[registry][hashed_id]
             if in_all:
                 total.append(list(merged_data.values()))
     return total
@@ -79,14 +80,16 @@ class MergeHandler(socketserver.StreamRequestHandler):
 
         if query_id not in received:
             received[query_id] = {}
+            metadata[query_id] = {}
         if source_id not in received[query_id]:
             received[query_id][source_id] = {}
+            metadata[query_id][source_id] = {}
 
         # if accepted by registry make data ready to merge
         if 'data' in data:
-            received[query_id][source_id]['data'] = data['data']
+            received[query_id][source_id] = data['data']
         if 'metadata' in data:
-            received[query_id][source_id]['metadata'] = data['metadata']
+            metadata[query_id][source_id] = data['metadata']
 
         logger.debug("Will remove %s from remaining sources for query %s",
                      source_id, query_id)
@@ -99,12 +102,12 @@ class MergeHandler(socketserver.StreamRequestHandler):
             merged = merge(received[query_id])
             logger.debug("Merged %s", data)
             logger.debug("Merged to %s", merged)
-            logger.debug("Removing data for query id %s", query_id)
+            results = {"query_id": query_id, "data": merged}
+            results['metadata'] = metadata[query_id]
             del received[query_id]
-            logger.debug("Removing query %s from query sources", query_id)
+            del metadata[query_id]
             del query_sources[query_id]
-            data = {"query_id": query_id, "data": merged}
-            serialize_encrypt_and_send(data,
+            serialize_encrypt_and_send(results,
                                        config.SUMMARY_SERVER_RECIPIENT,
                                        config.SUMMARY_SERVER_PORT)
 
