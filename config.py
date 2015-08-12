@@ -1,5 +1,7 @@
 KEYDIR = './keys'
 
+WEB_SERVER_QUERY_URL = 'http://localhost:5000/queries'
+
 QUERY_SERVER_HOST = 'localhost'
 QUERY_SERVER_PORT = 50010
 QUERY_SERVER_RECIPIENT = 'sigurdga@edge'

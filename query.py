@@ -31,8 +31,11 @@ cached_queries = {}
 
 
 def fetch_queries(registry_id):
-    data = request.urlopen("http://localhost:5000/queries").read()
+    """Fetching queries. Will also sign those not seen before."""
+
+    data = request.urlopen(config.WEB_SERVER_QUERY_URL).read()
     logger.debug("all queries %s", data.decode("utf-8"))
+
     queries = json.loads(data.decode("utf-8"))
     filtered = []
     for query in queries['queries']:
