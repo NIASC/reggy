@@ -110,6 +110,42 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
         return {'data': data, 'source_id': source_id}, metadata
 
 
+def sign_queries(queries, source_id):
+    """
+    Will sign queries not already signed by this source. If debug info is
+    turned on, this will also log info about already signed queries.
+    """
+
+    all_signed_queries = []
+    this_signed_queries = {}
+    for query in queries:
+        logger.debug("query     %s", query)
+        if source_id in query['signed_by']:
+            if set(query["signed_by"]) == set(query["sources"]):
+                logger.info("Is ready: %s", query["id"])
+                all_signed_queries.append(query)
+            else:
+                logger.info(
+                    "I have signed this, but not everybody else: %s",
+                    query["id"])
+
+        else:
+            original = query['signed']
+
+            # verify
+            verified = verify(original)
+            if not verified:
+                raise VerificationError(
+                    "Signature could not be verified for query %s",
+                    query)
+
+            # sign
+            signed = sign(original)
+            this_signed_queries[query['id']] = signed.data.decode("utf-8")
+
+    return all_signed_queries, this_signed_queries
+
+
 def fetch_queries(source_id):
     logger.debug("fetching queries")
     data = serialize({"source_id": source_id})
@@ -117,8 +153,6 @@ def fetch_queries(source_id):
     # Create a socket (SOCK_STREAM means a TCP socket)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     received = None
-    all_signed_queries = []
-    this_signed_queries = {}
 
     try:
         # Connect to server and send data
@@ -140,31 +174,12 @@ def fetch_queries(source_id):
         queries = decrypted_data['queries']
         logger.debug("queries       %s", queries)
         logger.info("got %s queries from query server", len(queries))
-        for query in queries:
-            logger.debug("query     %s", query)
-            if source_id in query['signed_by']:
-                if set(query["signed_by"]) == set(query["sources"]):
-                    logger.info("Is ready: %s", query["id"])
-                    all_signed_queries.append(query)
-                else:
-                    logger.info(
-                        "I have signed this, but not everybody else: %s",
-                        query["id"])
 
-            else:
-                original = query['signed']
-
-                # verify
-                verified = verify(original)
-                if not verified:
-                    raise VerificationError(
-                        "Signature could not be verified for query %s",
-                        query)
-
-                # sign
-                signed = sign(original)
-                this_signed_queries[query['id']] = signed.data.decode("utf-8")
+        # sign queries
+        all_signed_queries, this_signed_queries = sign_queries(queries, source_id)
         logger.debug("signed queries %s", this_signed_queries)
+
+        # encrypt and return signed queries to query server
         encrypted = serialize_encrypt_and_encode(this_signed_queries,
                                                  config.QUERY_SERVER_RECIPIENT)
         logger.info("sending %s signed queries back to query server",
