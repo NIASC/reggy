@@ -66,7 +66,6 @@ class QueryHandler(socketserver.StreamRequestHandler):
         # TODO: Source ID should be replaced by mapping to IP/PORT
         valid_sources = ['hunt', 'cancer', 'death']
         if 'source_id' in data and data['source_id'] in valid_sources:
-            logger.info("asking web server for queries")
             queries = fetch_queries(data['source_id'])
             logger.info("got queries from web server")
 
