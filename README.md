@@ -84,6 +84,14 @@ default configuration values. Change it and it should work.
 
 Example keys have been installed for demo purposes, so everything should work.
 
+Development roadmap
+-------------------
+
+* Sending email to let other try it
+* Add security documentation
+* Unit testing
+* System testing, docker compose?
+
 License
 -------
 
