@@ -122,10 +122,10 @@ def sign_queries(queries, source_id):
         logger.debug("query     %s", query)
         if source_id in query['signed_by']:
             if set(query["signed_by"]) == set(query["sources"]):
-                logger.info("Is ready: %s", query["id"])
+                logger.debug("Is ready: %s", query["id"])
                 all_signed_queries.append(query)
             else:
-                logger.info(
+                logger.debug(
                     "I have signed this, but not everybody else: %s",
                     query["id"])
 
@@ -216,7 +216,8 @@ def send(source_id, method, query_id):
         logger.debug("Check query %s", query)
         if query["id"] == query_id:
             if method == "accept":
-                logger.info("Accepting %s", query_id)
+                logger.info("Accepting %s and sending it to merge server",
+                            query_id)
 
                 # Find field names for this source
                 fieldnames = query['fields'][source_id]
