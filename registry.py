@@ -174,7 +174,8 @@ def fetch_queries(source_id):
     finally:
         sock.close()
 
-    logger.info("returning %s signed queries", len(all_signed_queries))
+    logger.info("returning %s queries signed by all participants",
+                len(all_signed_queries))
     return all_signed_queries
 
 
@@ -221,6 +222,7 @@ def send(source_id, method, query_id):
                 # Send data
                 serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,
                                            config.MERGE_SERVER_PORT)
+                logger.info("Accepted %s sent to merge server", query_id)
                 return True
             else:
                 logger.warning("Rejecting %s", query_id)
@@ -229,6 +231,7 @@ def send(source_id, method, query_id):
                 data['sources'] = query['sources']
                 serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,
                                            config.MERGE_SERVER_PORT)
+                logger.info("Rejected %s sent to merge server", query_id)
                 return True
 
             return

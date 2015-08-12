@@ -37,7 +37,6 @@ def fetch_queries(registry_id):
     logger.debug("all queries %s", data.decode("utf-8"))
 
     queries = json.loads(data.decode("utf-8"))
-    filtered = []
     for query in queries['queries']:
         # fill local cache
         query_id = query.get('id')
@@ -48,10 +47,11 @@ def fetch_queries(registry_id):
             query['signed'] = signed.data.decode("utf-8")
             cached_queries[query_id] = query
 
+
+def filter_queries(registry_id):
+    filtered = []
     for query_id, query in cached_queries.items():
         if registry_id in query['sources']:
-            # earlier, we picked out the relevant part, but we now let the
-            # registries do that themselves
             filtered.append(query)
     queries = {"queries": filtered}
     logger.debug("filtered    %s", queries)
@@ -63,25 +63,29 @@ class QueryHandler(socketserver.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
         data = json.loads(self.data.decode("utf-8"))
-        logger.info("%s gets queries", data['source_id'])
+        source_id = data['source_id']
+
+        logger.info("%s gets queries", source_id)
 
         # TODO: Create good filter
         # TODO: Source ID should be replaced by mapping to IP/PORT
         valid_sources = ['hunt', 'cancer', 'death']
-        if 'source_id' in data and data['source_id'] in valid_sources:
-            queries = fetch_queries(data['source_id'])
+        if 'source_id' in data and source_id in valid_sources:
+            # fetching and saving to "global" list of all queries
+            fetch_queries(source_id)
+            queries = filter_queries(source_id)
             logger.info("got queries from web server")
 
-            if not config.RECIPIENTS[data['source_id']]:
+            if not config.RECIPIENTS[source_id]:
                 raise Exception("Could not find encryption config for %s",
-                                data['source_id'])
+                                source_id)
 
             encrypted = serialize_encrypt_and_encode(
-                queries, config.RECIPIENTS[data['source_id']])
+                queries, config.RECIPIENTS[source_id])
 
             logger.debug("sending     %s", encrypted)
-            logger.info("responding to %s with all queries - for signing",
-                        data['source_id'])
+            logger.info("responding to %s with all %s queries",
+                        source_id, len(queries))
             self.request.sendall(encrypted + bytes("\n", "utf-8"))
 
             received = self.rfile.readline().strip()
@@ -89,7 +93,7 @@ class QueryHandler(socketserver.StreamRequestHandler):
 
             signed_queries = decode_decrypt_and_deserialize(received)
             logger.info("got back %s signed queries from %s",
-                        len(signed_queries), data['source_id'])
+                        len(signed_queries), source_id)
 
             logger.debug("decrypted_data %s", signed_queries)
             # reset timeout lock
@@ -102,12 +106,11 @@ class QueryHandler(socketserver.StreamRequestHandler):
                         query_id)
 
                 # update cached_queries
-                cached_queries[query_id]['signed_by'].append(data['source_id'])
+                cached_queries[query_id]['signed_by'].append(source_id)
                 cached_queries[query_id]['signed'] = query
 
             logger.debug(cached_queries)
-            logger.info("%s got %s queries",
-                        data['source_id'], len(cached_queries))
+            logger.info("%s got %s queries", source_id, len(cached_queries))
 
 
 if __name__ == "__main__":
