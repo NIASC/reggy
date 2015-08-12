@@ -15,6 +15,44 @@ logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('present')
 
 
+def unwrap_metadata(metadata):
+    """
+    When data is merged, the field names are joined with their source (registry
+    name). We have to to the same for metadata.
+    """
+    unwrapped_metadata = {}
+    for source in metadata:
+        for typ in metadata[source]:
+            for fieldname in metadata[source][typ]:
+                if typ not in unwrapped_metadata:
+                    unwrapped_metadata[typ] = {}
+                key = source + ":" + fieldname
+                unwrapped_metadata[typ][key] = metadata[source][typ][fieldname]
+
+    return unwrapped_metadata
+
+
+def insert_intervals(fieldname, summary, metadata):
+    """
+    When data is put into categories by creating intervals by a simple
+    division, we need to multiply the category identifier to get the original
+    back. The multiplier is defined in the metadata.
+    """
+    if 'intervals' in metadata and fieldname in metadata['intervals']:
+        return {int(key) * metadata['intervals'][fieldname]: value
+                for key, value in summary.items()}
+
+
+def insert_replacements(fieldname, summary, metadata):
+    """
+    Some category identifiers gives no meaning and should be replaced by values
+    defined in metadta.
+    """
+    if 'replacements' in metadata and fieldname in metadata['replacements']:
+        return {metadata['replacements'][fieldname][key]: value
+                for key, value in summary.items()}
+
+
 class PresentationHandler(socketserver.StreamRequestHandler):
     def handle(self):
         self.data = self.rfile.readline().strip()
@@ -25,18 +63,20 @@ class PresentationHandler(socketserver.StreamRequestHandler):
         # unwrap metadata organized per source
         metadata = {k: decrypt_and_deserialize(m)
                     for k, m in data["metadata"].items()}
-        unwrapped_metadata = {}
-        for source in metadata:
-            for key in metadata[source]:
-                unwrapped_metadata[source + ":" + key] = metadata[source][key]
+        unwrapped_metadata = unwrap_metadata(metadata)
 
+        # decrypt data and replace category names/labels
         decrypted_data = {}
         for encrypted_fieldname, categorized_summary in data["data"].items():
             fieldname = decrypt_and_deserialize(encrypted_fieldname)
-            if fieldname in unwrapped_metadata:  # replace interval categories
-                summary = {int(key) * unwrapped_metadata[fieldname]: value
-                           for key, value in categorized_summary.items()}
-            else:
+            # replace interval categories from metadata
+            summary = insert_intervals(fieldname, categorized_summary,
+                                       unwrapped_metadata)
+            if not summary:
+                # replace strings in keys from metadata
+                summary = insert_replacements(fieldname, categorized_summary,
+                                              unwrapped_metadata)
+            if not summary:
                 summary = categorized_summary
             decrypted_data[fieldname] = summary
 

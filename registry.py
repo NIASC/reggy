@@ -76,8 +76,8 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
 
     # We will send metadata about categorization++ to be unpacked in
     # presentation step.
-    # TODO: Encrypt me meaning
-    metadata = config.FIELD_INTERVALS
+    metadata = {'intervals': config.FIELD_INTERVALS,
+                'replacements': config.FIELD_REPLACEMENTS}
 
     with open(source_id + '.csv', 'r') as f:
         reader = csv.reader(f)

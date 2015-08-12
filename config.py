@@ -22,10 +22,27 @@ RECIPIENTS = {
     'death': 'sigurdga@edge'
 }
 
+# Field information should be set in registries
+
 FIELD_INTERVALS = {
     'born': 5,
     'height': 2,
     'weight': 5
+}
+
+FIELD_REPLACEMENTS = {
+    'training': {'0': 'no',
+                 '1': 'one time per week',
+                 '2': '2-3 times per week',
+                 '3': 'a lot'},
+    'smoking': {'0': 'no',
+                '1': 'at parties',
+                '2': 'some',
+                '3': 'too much'},
+    'drinking': {'0': 'never',
+                 '1': 'sometimes',
+                 '2': 'often',
+                 '3': 'too often'}
 }
 
 # TODO: Override these when finding a file containing local config
