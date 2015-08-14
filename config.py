@@ -1,6 +1,7 @@
 KEYDIR = './keys'
 
 WEB_SERVER_QUERY_URL = 'http://localhost:5000/queries'
+EMAIL_SENDER = 'sigurd.gartmann@ntnu.no'
 
 QUERY_SERVER_HOST = 'localhost'
 QUERY_SERVER_PORT = 50010
@@ -29,7 +30,8 @@ RECIPIENTS = {
 FIELD_INTERVALS = {
     'born': 5,
     'height': 2,
-    'weight': 5
+    'weight': 5,
+    'bmi': 0.5
 }
 
 FIELD_REPLACEMENTS = {
@@ -44,7 +46,19 @@ FIELD_REPLACEMENTS = {
     'drinking': {'0': 'never',
                  '1': 'sometimes',
                  '2': 'often',
-                 '3': 'too often'}
+                 '3': 'too often'},
+    'genotyped': {'0': 'no',
+                  '1': 'yes'},
+    'cancer': {'0': 'no',
+               '1': 'yes'},
+    'lung_cancer': {'0': 'no',
+                    '1': 'yes'},
+    'bowel_cancer': {'0': 'no',
+                     '1': 'yes'},
+    'breas_cancer': {'0': 'no',
+                     '1': 'yes'},
+    'prostate_cancer': {'0': 'no',
+                        '1': 'yes'}
 }
 
 # TODO: Override these when finding a file containing local config

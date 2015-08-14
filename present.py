@@ -8,11 +8,32 @@ import logging
 import socketserver
 
 import config
+import pprint
+import smtplib
 import argparse
+
+from email.mime.text import MIMEText
 from lib import decrypt_and_deserialize, decode_decrypt_and_deserialize
 
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('present')
+
+
+def send_results(recipient_address, results, query_id):
+    """
+    If a sender email address is configured, we will try to send email from
+    localhost.
+    """
+    if (config.EMAIL_SENDER):
+        msg = MIMEText(results, 'plain')
+        msg['Subject'] = 'Results for query {}'.format(query_id)
+        msg['From'] = config.EMAIL_SENDER
+        msg['To'] = recipient_address
+
+        s = smtplib.SMTP('localhost')
+        refused = s.send_message(msg)
+        s.quit()
+        return refused
 
 
 def unwrap_metadata(metadata):
@@ -39,7 +60,7 @@ def insert_intervals(fieldname, summary, metadata):
     back. The multiplier is defined in the metadata.
     """
     if 'intervals' in metadata and fieldname in metadata['intervals']:
-        return {int(key) * metadata['intervals'][fieldname]: value
+        return {float(key) * metadata['intervals'][fieldname]: value
                 for key, value in summary.items()}
 
 
@@ -58,7 +79,9 @@ class PresentationHandler(socketserver.StreamRequestHandler):
         self.data = self.rfile.readline().strip()
         data = decode_decrypt_and_deserialize(self.data)
 
-        logging.info("got data for query %s", data["query_id"])
+        query_id = data['query_id']
+        email = data['email']
+        logging.info("got data for query %s", query_id)
 
         # unwrap metadata organized per source
         metadata = {k: decrypt_and_deserialize(m)
@@ -82,7 +105,14 @@ class PresentationHandler(socketserver.StreamRequestHandler):
 
         # TODO: Logging is not the final delivery
         logger.info("decrypted summary for %s: %s",
-                    data["query_id"], decrypted_data)
+                    query_id, decrypted_data)
+        pretty = pprint.pformat(decrypted_data, indent=4)
+        refused_addresses = send_results(email, pretty, query_id)
+        if refused_addresses:
+            logger.warning("Could not send email to %s: %s",
+                           email, refused_addresses)
+        if refused_addresses is not None:
+            logger.info("Email sent to %s", email)
 
         response = ""
         self.request.sendall(bytes(response, "utf-8"))

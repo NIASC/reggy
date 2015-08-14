@@ -108,6 +108,7 @@ class MergeHandler(socketserver.StreamRequestHandler):
             logger.debug("Merged to %s", merged)
             results = {"query_id": query_id, "data": merged}
             results['metadata'] = metadata[query_id]
+            results['email'] = data['email']
             del received[query_id]
             del metadata[query_id]
             del query_sources[query_id]

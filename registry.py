@@ -5,6 +5,7 @@ This will mimic a health registry, not using correct data, but something
 similar.
 """
 
+import re
 import csv
 import base64
 import socket
@@ -96,8 +97,8 @@ def get_local_data(fieldnames, source_id, salt_for_id_hashing):
 
                 # some fields have restrictions saying to categorize values
                 if fieldname in config.FIELD_INTERVALS.keys():
-                    intvalue = int(line[field])
-                    value = intvalue // config.FIELD_INTERVALS[fieldname]
+                    floatvalue = float(line[field])
+                    value = floatvalue // config.FIELD_INTERVALS[fieldname]
                 else:
                     value = line[field]
 
@@ -146,6 +147,19 @@ def sign_queries(queries, source_id):
     return all_signed_queries, this_signed_queries
 
 
+def filter_query(query):
+    """
+    We will do something smart here. For now, we just look for an email address
+    in the email field of the query.
+    """
+    email_pattern = r"[^@]+@[^@]+\.[^@]+"
+    if 'email' in query and re.match(email_pattern, query['email']):
+        return True
+    else:
+        # TODO: Should probably report the query in some way
+        logger.debug("Query not passing filter %s", query)
+
+
 def fetch_queries(source_id):
     logger.debug("fetching queries")
     data = serialize({"source_id": source_id})
@@ -191,7 +205,9 @@ def fetch_queries(source_id):
 
     logger.info("returning %s queries signed by all participants",
                 len(all_signed_queries))
-    return all_signed_queries
+
+    filtered_queries = [q for q in all_signed_queries if filter_query(q)]
+    return filtered_queries
 
 
 def list_queries(source_id):
@@ -202,7 +218,7 @@ def list_queries(source_id):
         return
 
     logger.debug("Queries: %s", queries)
-    template = "{id!s:32}"
+    template = "{id!s:32} {email}"
     print("Queries for {}\n--------------------".format(source_id))
     for query in queries:
         print(template.format(**query))
@@ -231,6 +247,7 @@ def send(source_id, method, query_id):
                 # Copy id and total sources to data sent to merge server
                 data['query_id'] = query['id']
                 data['sources'] = query['sources']
+                data['email'] = query['email']
                 data['metadata'] = serialize_and_encrypt(
                     metadata, config.PRESENTATION_SERVER_RECIPIENT
                 ).decode("utf-8")
@@ -245,9 +262,11 @@ def send(source_id, method, query_id):
                 data = {'source_id': source_id}
                 data['query_id'] = query['id']
                 data['sources'] = query['sources']
+                data['email'] = query['email']
                 serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,
                                            config.MERGE_SERVER_PORT)
                 logger.info("Rejected %s sent to merge server", query_id)
+                # TODO: Send email to person issuing query
                 return True
 
             return

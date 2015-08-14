@@ -44,6 +44,7 @@ class SummaryHandler(socketserver.StreamRequestHandler):
         data = decode_decrypt_and_deserialize(self.data)
         metadata = data["metadata"]
         query_id = data["query_id"]
+        email = data["email"]
 
         logger.info("got data for query %s", query_id)
 
@@ -57,7 +58,8 @@ class SummaryHandler(socketserver.StreamRequestHandler):
 
         # summarize
         summary = create_summary(results)
-        results = {"data": summary, "query_id": query_id, "metadata": metadata}
+        results = {"data": summary, "query_id": query_id, "metadata": metadata,
+                   "email": email}
         serialize_encrypt_and_send(results,
                                    config.PRESENTATION_SERVER_RECIPIENT,
                                    config.PRESENTATION_SERVER_PORT)

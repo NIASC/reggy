@@ -28,10 +28,10 @@ def search():
     if request.method == 'POST':
         hunt = request.form.getlist('hunt')
         cancer = request.form.getlist('cancer')
-        username = request.form.get('username')
+        email = request.form.get('email')
         query = {
             "_id": uuid.uuid4().hex,
-            "username": username,
+            "email": email,
             "fields": {
                 "hunt": hunt,
                 "cancer": cancer
@@ -39,8 +39,9 @@ def search():
             "query_time": datetime.utcnow()
         }
         query_id = db.queries.insert(query)
-        return u"Takk for din spørring, med id %s og data %s" % (
-            query_id, query)
+        return (
+            "Takk for din spørring. Vi sender epost når resultatene er "
+            "klare.\nID {}: {}. ".format(query_id, query))
     else:
         return render_template('search.html')
 
