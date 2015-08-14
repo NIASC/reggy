@@ -272,6 +272,16 @@ def send(source_id, method, query_id):
             return
 
 
+def accept_all(source_id):
+    queries = fetch_queries(source_id)
+    counter = 0
+    for query in queries:
+        status = send(source_id, "accept", query["id"])
+        if status:
+            counter += 1
+    return counter
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
@@ -300,6 +310,14 @@ if __name__ == '__main__':
         list_queries(args.registry)
     else:
         # accept the query
-        status = send(args.registry, "accept", args.accept)
-        if not status:
-            logger.error("Query ID %s did not match any queries", args.accept)
+        if args.accept == "all":
+            status = accept_all(args.registry)
+            if status is None:
+                logger.error("Something wrong happened")
+            else:
+                logger.info("Auto-accepted %s queries", status)
+        else:
+            status = send(args.registry, "accept", args.accept)
+            if not status:
+                logger.error("Query ID %s did not match any queries",
+                             args.accept)
