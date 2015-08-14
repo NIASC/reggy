@@ -1,6 +1,7 @@
 KEYDIR = './keys'
 
 WEB_SERVER_QUERY_URL = 'http://localhost:5000/queries'
+WEB_SERVER_QUERY_STATUS_URL = 'http://localhost:5000/query'
 EMAIL_SENDER = 'sigurd.gartmann@ntnu.no'
 
 QUERY_SERVER_HOST = 'localhost'
@@ -35,6 +36,8 @@ FIELD_INTERVALS = {
 }
 
 FIELD_REPLACEMENTS = {
+    'gender': {'0': 'male',
+               '1': 'female'},
     'training': {'0': 'no',
                  '1': 'one time per week',
                  '2': '2-3 times per week',
@@ -55,8 +58,8 @@ FIELD_REPLACEMENTS = {
                     '1': 'yes'},
     'bowel_cancer': {'0': 'no',
                      '1': 'yes'},
-    'breas_cancer': {'0': 'no',
-                     '1': 'yes'},
+    'breast_cancer': {'0': 'no',
+                      '1': 'yes'},
     'prostate_cancer': {'0': 'no',
                         '1': 'yes'}
 }

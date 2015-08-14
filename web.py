@@ -46,26 +46,41 @@ def search():
         return render_template('search.html')
 
 
+@app.route("/query", methods=['POST'])
+def querystatus():
+    query_id = request.form.get('id')
+    mongo_status = db.queries.update_one({'_id': query_id}, {
+        '$inc': {'served_count': 1},
+        '$set': {
+            'status': request.form.get('status'),
+            'sent': request.form.get('sent_datetime')
+        }})
+    app.logger.info(
+        "Query %s got status %s with db status %s",
+        query_id, request.form.get('status'), mongo_status.modified_count)
+    return "{}".format(mongo_status.modified_count)
+
+
 @app.route("/queries")
 def queries():
     queries = []
     q = db.queries.find()
     for query in q:
-        # Massaging data from mongodb. This is also makes the queries jsonify-able.
-        query["id"] = query.get("_id")
-        query["timestamp"] = query.get("query_time").isoformat()
-        del(query["_id"])
-        del(query["query_time"])
+        # TODO: The following check should probably be moved to query
+        # server or registry. Or should we keep the logic separated.
+        if 'status' not in query or query['status'] != 'sent':
+            # Massaging data from mongodb. This is also makes the queries
+            # jsonify-able.
+            query["id"] = query.get("_id")
+            query["timestamp"] = query.get("query_time").isoformat()
+            del(query["_id"])
+            del(query["query_time"])
 
-        # TODO: Make the next step more generic
-        # Will need a more generic solution in the web forms as well
-        query["sources"] = list(query['fields'])
-        queries.append(query)
+            # TODO: Make the next step more generic
+            # Will need a more generic solution in the web forms as well
+            query["sources"] = list(query['fields'])
+            queries.append(query)
     return jsonify(queries=queries)
-    # Do the next if jsonify cannot be used
-    #response = Response(json_util.dumps({"queries": queries}),
-    #                    mimetype="application/json")
-    #return response
 
 # TODO: merge with /queries or delete completely
 @app.route("/non-public/list")

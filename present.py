@@ -11,6 +11,9 @@ import config
 import pprint
 import smtplib
 import argparse
+import datetime
+import urllib.parse
+import urllib.request
 
 from email.mime.text import MIMEText
 from lib import decrypt_and_deserialize, decode_decrypt_and_deserialize
@@ -108,14 +111,26 @@ class PresentationHandler(socketserver.StreamRequestHandler):
                     query_id, decrypted_data)
         pretty = pprint.pformat(decrypted_data, indent=4)
         refused_addresses = send_results(email, pretty, query_id)
+        sent_datetime = datetime.datetime.now()
         if refused_addresses:
             logger.warning("Could not send email to %s: %s",
                            email, refused_addresses)
         if refused_addresses is not None:
             logger.info("Email sent to %s", email)
 
-        response = ""
-        self.request.sendall(bytes(response, "utf-8"))
+            # Now inform web server that results have been delivered
+            statusupdate = {'sent_datetime': sent_datetime,
+                            'status': 'sent',
+                            'id': query_id}
+            data = urllib.parse.urlencode(statusupdate).encode("utf-8")
+            req = urllib.request.Request(config.WEB_SERVER_QUERY_STATUS_URL)
+            req.add_header("Content-Type",
+                           "application/x-www-form-urlencoded;charset=utf-8")
+            res = urllib.request.urlopen(req, data)
+            logger.debug("Status for sending this document is set: %s",
+                         res.read().decode('utf-8'))
+
+        self.request.sendall(bytes("", "utf-8"))
 
 
 if __name__ == "__main__":
