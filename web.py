@@ -66,20 +66,17 @@ def queries():
     queries = []
     q = db.queries.find()
     for query in q:
-        # TODO: The following check should probably be moved to query
-        # server or registry. Or should we keep the logic separated.
-        if 'status' not in query:
-            # Massaging data from mongodb. This is also makes the queries
-            # jsonify-able.
-            query["id"] = query.get("_id")
-            query["timestamp"] = query.get("query_time").isoformat()
-            del(query["_id"])
-            del(query["query_time"])
+        # Massaging data from mongodb. This is also makes the queries
+        # jsonify-able. Send all data for now. TODO: Set date limit
+        query["id"] = query.get("_id")
+        query["timestamp"] = query.get("query_time").isoformat()
+        del(query["_id"])
+        del(query["query_time"])
 
-            # TODO: Make the next step more generic
-            # Will need a more generic solution in the web forms as well
-            query["sources"] = list(query['fields'])
-            queries.append(query)
+        # TODO: Make the next step more generic
+        # Will need a more generic solution in the web forms as well
+        query["sources"] = list(query['fields'])
+        queries.append(query)
     app.logger.debug("Queries: %s", queries)
     return jsonify(queries=queries)
 
