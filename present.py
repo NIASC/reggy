@@ -86,49 +86,57 @@ class PresentationHandler(socketserver.StreamRequestHandler):
         email = data['email']
         logging.info("got data for query %s", query_id)
 
-        # unwrap metadata organized per source
-        metadata = {k: decrypt_and_deserialize(m)
-                    for k, m in data["metadata"].items()}
-        unwrapped_metadata = unwrap_metadata(metadata)
+        if not "data" in data:
+            # rejected: has no data or metadata
+            decrypted_data = "Rejected"
+            status = "rejected"
 
-        # decrypt data and replace category names/labels
-        decrypted_data = {}
-        for encrypted_fieldname, categorized_summary in data["data"].items():
-            fieldname = decrypt_and_deserialize(encrypted_fieldname)
-            # replace interval categories from metadata
-            summary = insert_intervals(fieldname, categorized_summary,
-                                       unwrapped_metadata)
-            if not summary:
-                # replace strings in keys from metadata
-                summary = insert_replacements(fieldname, categorized_summary,
-                                              unwrapped_metadata)
-            if not summary:
-                summary = categorized_summary
-            decrypted_data[fieldname] = summary
+        else:
+            # unwrap metadata organized per source
+            metadata = {k: decrypt_and_deserialize(m)
+                        for k, m in data["metadata"].items()}
+            unwrapped_metadata = unwrap_metadata(metadata)
 
-        # TODO: Logging is not the final delivery
-        logger.info("decrypted summary for %s: %s",
-                    query_id, decrypted_data)
+            # decrypt data and replace category names/labels
+            decrypted_data = {}
+            for encrypted_fieldname, categorized_summary in data["data"].items():
+                fieldname = decrypt_and_deserialize(encrypted_fieldname)
+                # replace interval categories from metadata
+                summary = insert_intervals(fieldname, categorized_summary,
+                                           unwrapped_metadata)
+                if not summary:
+                    # replace strings in keys from metadata
+                    summary = insert_replacements(fieldname, categorized_summary,
+                                                  unwrapped_metadata)
+                if not summary:
+                    summary = categorized_summary
+                decrypted_data[fieldname] = summary
+
+            # TODO: Logging is not the final delivery
+            logger.info("decrypted summary for %s: %s",
+                        query_id, decrypted_data)
+            status = "ok"
+
         pretty = pprint.pformat(decrypted_data, indent=4)
         refused_addresses = send_results(email, pretty, query_id)
         sent_datetime = datetime.datetime.now()
         if refused_addresses:
             logger.warning("Could not send email to %s: %s",
                            email, refused_addresses)
-        if refused_addresses is not None:
+        if refused_addresses is None:
             logger.info("Email sent to %s", email)
 
-            # Now inform web server that results have been delivered
-            statusupdate = {'sent_datetime': sent_datetime,
-                            'status': 'sent',
-                            'id': query_id}
-            data = urllib.parse.urlencode(statusupdate).encode("utf-8")
-            req = urllib.request.Request(config.WEB_SERVER_QUERY_STATUS_URL)
-            req.add_header("Content-Type",
-                           "application/x-www-form-urlencoded;charset=utf-8")
-            res = urllib.request.urlopen(req, data)
-            logger.debug("Status for sending this document is set: %s",
-                         res.read().decode('utf-8'))
+        # Now inform web server
+        statusupdate = {'sent_datetime': sent_datetime,
+                        'status': status,
+                        'id': query_id}
+        data = urllib.parse.urlencode(statusupdate).encode("utf-8")
+        req = urllib.request.Request(config.WEB_SERVER_QUERY_STATUS_URL)
+        req.add_header("Content-Type",
+                       "application/x-www-form-urlencoded;charset=utf-8")
+        res = urllib.request.urlopen(req, data)
+        logger.debug("Status for sending this document is set: %s",
+                     res.read().decode('utf-8'))
 
         self.request.sendall(bytes("", "utf-8"))
 

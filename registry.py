@@ -258,6 +258,7 @@ def send(source_id, method, query_id):
                 logger.info("Accepted %s sent to merge server", query_id)
                 return True
             else:
+                # Reject
                 logger.warning("Rejecting %s", query_id)
                 data = {'source_id': source_id}
                 data['query_id'] = query['id']
@@ -266,7 +267,8 @@ def send(source_id, method, query_id):
                 serialize_encrypt_and_send(data, config.MERGE_SERVER_RECIPIENT,
                                            config.MERGE_SERVER_PORT)
                 logger.info("Rejected %s sent to merge server", query_id)
-                # TODO: Send email to person issuing query
+                # TODO: Send email to person issuing query: Should happen from
+                # other instance
                 return True
 
             return
@@ -290,6 +292,8 @@ if __name__ == '__main__':
     parser.add_argument('registry', choices=("hunt", "cancer", "death"))
     parser.add_argument('--accept', type=str,
                         help="Accept one query by query ID")
+    parser.add_argument('--reject', type=str,
+                        help="Reject one query by query ID")
     parser.add_argument('--debug', nargs="?", const=True, default=False,
                         help="Debug logging")
     args = parser.parse_args()
@@ -305,19 +309,26 @@ if __name__ == '__main__':
     logging.getLogger("gnupg").setLevel(logging.INFO)
     logger = logging.getLogger('registry')
 
-    if not args.accept:  # or not args.reject
+    if not args.accept and not args.reject:
         # list queries for registry
         list_queries(args.registry)
     else:
-        # accept the query
+        # accept query
         if args.accept == "all":
             status = accept_all(args.registry)
             if status is None:
                 logger.error("Something wrong happened")
             else:
                 logger.info("Auto-accepted %s queries", status)
-        else:
+        elif args.accept:
             status = send(args.registry, "accept", args.accept)
             if not status:
-                logger.error("Query ID %s did not match any queries",
-                             args.accept)
+                logger.error("Could not accept ID %s (no match?)",
+                        args.accept)
+        # reject query
+        elif args.reject:
+            status = send(args.registry, "reject", args.reject)
+            if not status:
+                logger.error("Could not reject ID %s (no match?)",
+                        args.reject)
+        # TODO: More fine grained accept and reject status

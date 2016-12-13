@@ -27,6 +27,7 @@ logger = logging.getLogger('merge')
 received = {}
 metadata = {}
 query_sources = {}
+rejected = set()
 
 
 def merge(data):
@@ -89,39 +90,52 @@ class MergeHandler(socketserver.StreamRequestHandler):
             metadata[query_id][source_id] = {}
 
         # if accepted by registry make data ready to merge
-        if 'data' in data:
-            received[query_id][source_id] = data['data']
+        # accepted queries send data and metadata
         if 'metadata' in data:
             metadata[query_id][source_id] = data['metadata']
+        if 'data' in data:
+            received[query_id][source_id] = data['data']
+        else:
+            rejected.add(query_id)
 
         logger.debug("Will remove %s from remaining sources for query %s",
                      source_id, query_id)
         query_sources[query_id].remove(source_id)
 
         # if query_sources is empty, this was the last (or only) sender. Data
-        # should then be merged, and temporary storage should be cleaned. The
-        # last step is to send the merged data to the summary server.
+        # should then be merged, and temporary storage should be cleaned. If
+        # the query is rejected, we will pass this status to the next service,
+        # and remove the query from the rejected set.
+        # The last step is to send the merged data to the summary server.
         if not query_sources[query_id]:
-            logger.info("will merge data for %s", query_id)
-            merged = merge(received[query_id])
-            logger.debug("Merged %s", data)
-            logger.debug("Merged to %s", merged)
-            results = {"query_id": query_id, "data": merged}
-            results['metadata'] = metadata[query_id]
-            results['email'] = data['email']
+            if query_id in rejected:
+                logger.info("Will not merge this query, it is rejected")
+                rejected.remove(query_id)
+                results = {"query_id": query_id}
+                results['metadata'] = metadata[query_id]
+                results['email'] = data['email']
+            else:
+                logger.info("will merge data for %s", query_id)
+                merged = merge(received[query_id])
+                logger.debug("Merged %s", data)
+                logger.debug("Merged to %s", merged)
+                results = {"query_id": query_id, "data": merged}
+                results['metadata'] = metadata[query_id]
+                results['email'] = data['email']
+                logger.info("data merged for %s", query_id)
             del received[query_id]
             del metadata[query_id]
             del query_sources[query_id]
-            logger.info("data merged for %s", query_id)
             serialize_encrypt_and_send(results,
                                        config.SUMMARY_SERVER_RECIPIENT,
                                        config.SUMMARY_SERVER_PORT)
 
         logger.debug("Sources left per query: %s", query_sources)
-        logger.info("query %s finished", query_id)
 
         response = ""
         self.request.sendall(bytes(response, "utf-8"))
+        logger.info("query %s finished and passed on to summary server",
+                query_id)
 
 
 if __name__ == '__main__':

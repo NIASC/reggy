@@ -27,7 +27,7 @@ from lib import serialize_encrypt_and_encode, decode_decrypt_and_deserialize
 logging.getLogger("gnupg").setLevel(logging.INFO)
 logger = logging.getLogger('query')
 
-cached_queries = {}
+signed_query_store = {}
 
 
 def fetch_queries(registry_id):
@@ -40,22 +40,23 @@ def fetch_queries(registry_id):
     for query in queries['queries']:
         # fill local cache
         query_id = query.get('id')
-        if query_id not in cached_queries:
+        if not query.get('status') and query_id not in signed_query_store:
             query['signed_by'] = []
             original = json.dumps(query['fields'])
             signed = sign(original)
             query['signed'] = signed.data.decode("utf-8")
-            cached_queries[query_id] = query
+            signed_query_store[query_id] = query
+        elif query.get('status'):
+            del signed_query_store[query_id]
 
 
 def filter_queries(registry_id):
     filtered = []
-    for query_id, query in cached_queries.items():
+    for query_id, query in signed_query_store.items():
         if registry_id in query['sources']:
             filtered.append(query)
-    queries = {"queries": filtered}
-    logger.debug("filtered    %s", queries)
-    return queries
+    logger.debug("filtered    %s", filtered)
+    return filtered
 
 
 class QueryHandler(socketserver.StreamRequestHandler):
@@ -81,7 +82,7 @@ class QueryHandler(socketserver.StreamRequestHandler):
                                 source_id)
 
             encrypted = serialize_encrypt_and_encode(
-                queries, config.RECIPIENTS[source_id])
+                    {"queries": queries}, config.RECIPIENTS[source_id])
 
             logger.debug("sending     %s", encrypted)
             logger.info("responding to %s with all %s queries",
@@ -105,12 +106,12 @@ class QueryHandler(socketserver.StreamRequestHandler):
                         "Signature could not be verified for query_id %s",
                         query_id)
 
-                # update cached_queries
-                cached_queries[query_id]['signed_by'].append(source_id)
-                cached_queries[query_id]['signed'] = query
+                # update signed_queries
+                signed_query_store[query_id]['signed_by'].append(source_id)
+                signed_query_store[query_id]['signed'] = query
 
-            logger.debug(cached_queries)
-            logger.info("%s got %s queries", source_id, len(cached_queries))
+            logger.debug(signed_query_store)
+            logger.info("%s got %s queries", source_id, len(signed_query_store))
 
 
 if __name__ == "__main__":

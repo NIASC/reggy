@@ -49,24 +49,31 @@ class SummaryHandler(socketserver.StreamRequestHandler):
         logger.info("got data for query %s", query_id)
 
         results = []
-        # decrypt
-        for dataline in data["data"]:
-            line = []
-            for encrypted in dataline:
-                line.append(decrypt_and_deserialize(encrypted))
-            results.append(line)
 
-        # summarize
-        summary = create_summary(results)
-        results = {"data": summary, "query_id": query_id, "metadata": metadata,
-                   "email": email}
+        if not "data" in data:
+            # rejected
+            results = {"query_id": query_id, "email": email}
+        else:
+            # decrypt
+            for dataline in data["data"]:
+                line = []
+                for encrypted in dataline:
+                    line.append(decrypt_and_deserialize(encrypted))
+                results.append(line)
+
+            # summarize
+            summary = create_summary(results)
+            logger.debug("summary: %s", summary)
+            results = {"data": summary, "query_id": query_id, "metadata": metadata,
+                       "email": email}
+
+        # send to next service
         serialize_encrypt_and_send(results,
                                    config.PRESENTATION_SERVER_RECIPIENT,
                                    config.PRESENTATION_SERVER_PORT)
         logger.debug("results %s decrypted: %s", query_id, results)
         response = ""
         self.request.sendall(bytes(response, "utf-8"))
-        logger.debug("summary: %s", summary)
         logger.info("summary for %s passed on to presentation server",
                     query_id)
 

@@ -68,7 +68,7 @@ def queries():
     for query in q:
         # TODO: The following check should probably be moved to query
         # server or registry. Or should we keep the logic separated.
-        if 'status' not in query or query['status'] != 'sent':
+        if 'status' not in query:
             # Massaging data from mongodb. This is also makes the queries
             # jsonify-able.
             query["id"] = query.get("_id")
@@ -80,6 +80,7 @@ def queries():
             # Will need a more generic solution in the web forms as well
             query["sources"] = list(query['fields'])
             queries.append(query)
+    app.logger.debug("Queries: %s", queries)
     return jsonify(queries=queries)
 
 # TODO: merge with /queries or delete completely
