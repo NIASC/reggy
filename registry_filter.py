@@ -14,9 +14,10 @@ class Filter(object):
         self.filters = filters
 
     def filter(self, query):
+        return self.toplevel_filter(query) and self.leaflevel_filter(query)
+
+    def toplevel_filter(self, query):
         for dataowner, fields in query.items():
-            query_without_dataowner = query.copy()
-            del query_without_dataowner[dataowner]
             for other_dataowner, other_fields in query.items():
                 if dataowner == other_dataowner:
                     continue
@@ -34,6 +35,30 @@ class Filter(object):
                     return False
         return True
 
+    def leaflevel_filter(self, query):
+        # Useful for testing
+        if not 'leaflevel' in self.filters:
+            return True
+
+        for dataowner, fields in query.items():
+            for other_dataowner, other_fields in query.items():
+                if dataowner == other_dataowner:
+                    continue
+                side_a_has_fields = dataowner in self.filters['leaflevel']
+                side_b_has_fields = dataowner in self.filters['leaflevel']
+                # TODO: check one side at a time
+                if not side_a_has_fields and not side_b_has_fields:
+                    # no detailed checking needed
+                    continue
+                for field in fields:
+                    if field not in self.filters['leaflevel'][dataowner]:
+                        return False
+                    for other_dataowner in self.filters['leaflevel'][dataowner][field]:
+                        for other_field in other_fields:
+                            if other_field not in self.filters['leaflevel'][dataowner][field][other_dataowner]:
+                                return False
+                # TODO: I don't remember if I finished the above - had to attend a meeting
+        return True
 
 if __name__ == '__main__':
     # Just an example. Will be removed. TODO
