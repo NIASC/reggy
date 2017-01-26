@@ -40,17 +40,17 @@ if __name__ == '__main__':
     query = {
         'hunt': ['age', 'gender'],
         'cancer': ['lung_cancer'],
-        }
+    }
     filters = {
-            'rootlevel': {
-                'hunt': {
-                    'cancer': True
-                    },
-                'cancer': {
-                    'hunt': True
-                    },
-                },
-            }
+        'rootlevel': {
+            'hunt': {
+                'cancer': true
+            },
+            'cancer': {
+                'hunt': true
+            },
+        },
+    }
 
     f = Filter(filters)
     status = f.filter(query)
