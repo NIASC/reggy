@@ -57,6 +57,14 @@ class Filter(object):
                         for other_field in other_fields:
                             if other_field not in self.filters['leaflevel'][dataowner][field][other_dataowner]:
                                 return False
+                # The mirrored version below is strictly not needed
+                for other_field in other_fields:
+                    if other_field not in self.filters['leaflevel'][other_dataowner]:
+                        return False
+                    if dataowner in self.filters['leaflevel'][other_dataowner][other_field]:
+                        for field in fields:
+                            if field not in self.filters['leaflevel'][other_dataowner][other_field][dataowner]:
+                                return False
                 # TODO: I don't remember if I finished the above - had to attend a meeting
         return True
 
